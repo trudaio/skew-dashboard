@@ -7,6 +7,7 @@ import { RefreshCw, TrendingUp, TrendingDown, Activity, AlertTriangle, Info, Che
 // ============================================================================
 
 const API_KEY = import.meta.env.VITE_API_KEY
+const FMP_API_KEY = import.meta.env.VITE_FMP_API_KEY
 
 // TastyTrade OAuth Credentials
 const TASTYTRADE_CLIENT_ID = import.meta.env.VITE_TASTYTRADE_CLIENT_ID
@@ -596,6 +597,178 @@ function analyzePeterLynch(fundamentals) {
     else { pegValuation = 'overvalued'; pegText = `PEG ratio of ${peg.toFixed(2)} suggests overvaluation.` }
   } else { pegText = 'Insufficient data for Peter Lynch PEG analysis.' }
   return { valuation: pegValuation, text: pegText, peg }
+}
+
+// ============================================================================
+// FUNDAMENTALS DATA (FMP + CALCULATED FALLBACK)
+// ============================================================================
+
+function formatLargeNumber(num) {
+  if (num == null || isNaN(num)) return '-'
+  const abs = Math.abs(num)
+  if (abs >= 1e12) return `$${(num / 1e12).toFixed(1)}T`
+  if (abs >= 1e9) return `$${(num / 1e9).toFixed(0)}B`
+  if (abs >= 1e6) return `$${(num / 1e6).toFixed(0)}M`
+  return `$${num.toFixed(0)}`
+}
+
+function calculateRSI(prices, period = 14) {
+  if (!prices || prices.length < period + 1) return null
+  const closes = prices.slice(-(period + 1)).map(p => p.close)
+  let gains = 0, losses = 0
+  for (let i = 1; i < closes.length; i++) {
+    const diff = closes[i] - closes[i - 1]
+    if (diff > 0) gains += diff; else losses -= diff
+  }
+  if (losses === 0) return '100.00'
+  const rs = (gains / period) / (losses / period)
+  return (100 - 100 / (1 + rs)).toFixed(2)
+}
+
+function calculateATR(prices, period = 14) {
+  if (!prices || prices.length < period + 1) return null
+  const recent = prices.slice(-(period + 1))
+  let atrSum = 0
+  for (let i = 1; i < recent.length; i++) {
+    atrSum += Math.abs(recent[i].close - recent[i - 1].close)
+  }
+  return (atrSum / period).toFixed(2)
+}
+
+function calculateVolatility(priceHistory) {
+  if (!priceHistory || priceHistory.length < 21) return '-'
+  const calcVol = (days) => {
+    const slice = priceHistory.slice(-days)
+    const returns = slice.slice(1).map((p, i) => Math.log(p.close / slice[i].close))
+    const mean = returns.reduce((a, b) => a + b, 0) / returns.length
+    const variance = returns.reduce((s, r) => s + (r - mean) ** 2, 0) / returns.length
+    return (Math.sqrt(variance * 252) * 100).toFixed(1)
+  }
+  return `${calcVol(5)}% ${calcVol(21)}%`
+}
+
+async function fetchFMPFundamentals(ticker, stockPrice, priceHistory) {
+  if (!FMP_API_KEY) {
+    console.log('No FMP API key set. Add VITE_FMP_API_KEY to .env for real fundamentals.')
+    return null
+  }
+  const base = 'https://financialmodelingprep.com/api/v3'
+  try {
+    const [quoteRes, ratiosRes, metricsRes, growthRes, profileRes] = await Promise.all([
+      fetch(`${base}/quote/${ticker}?apikey=${FMP_API_KEY}`),
+      fetch(`${base}/ratios-ttm/${ticker}?apikey=${FMP_API_KEY}`),
+      fetch(`${base}/key-metrics-ttm/${ticker}?apikey=${FMP_API_KEY}`),
+      fetch(`${base}/financial-growth/${ticker}?limit=1&apikey=${FMP_API_KEY}`),
+      fetch(`${base}/profile/${ticker}?apikey=${FMP_API_KEY}`)
+    ])
+    const [quoteArr, ratiosArr, metricsArr, growthArr, profileArr] = await Promise.all([
+      quoteRes.json(), ratiosRes.json(), metricsRes.json(), growthRes.json(), profileRes.json()
+    ])
+
+    // Check for API errors
+    if (quoteArr?.['Error Message'] || !quoteArr?.[0]) {
+      console.log('FMP API error:', quoteArr?.['Error Message'] || 'No data returned')
+      return null
+    }
+
+    const q = quoteArr?.[0] || {}
+    const r = ratiosArr?.[0] || {}
+    const m = metricsArr?.[0] || {}
+    const g = growthArr?.[0] || {}
+    const p = profileArr?.[0] || {}
+    const price = stockPrice || q.price || 0
+
+    const fmt = (n, d = 2) => (n != null && !isNaN(n) && isFinite(n)) ? Number(n).toFixed(d) : '-'
+    const fmtPct = (n, d = 1) => (n != null && !isNaN(n) && isFinite(n)) ? `${(Number(n) * 100).toFixed(d)}%` : '-'
+
+    const rsi = calculateRSI(priceHistory)
+    const atr = calculateATR(priceHistory)
+    const volatility = calculateVolatility(priceHistory)
+    const shares = q.sharesOutstanding || p.volAvg || 0
+    const netIncome = m.netIncomePerShareTTM ? m.netIncomePerShareTTM * shares : null
+    const revenue = m.revenuePerShareTTM ? m.revenuePerShareTTM * shares : null
+    const divYield = r.dividendYielPercentageTTM ?? r.dividendYieldPercentageTTM ?? r.dividendYielTTM ?? r.dividendYieldTTM
+
+    return {
+      'Index': p.exchangeShortName || q.exchange || '-',
+      'Market Cap': formatLargeNumber(q.marketCap || p.mktCap),
+      'Income': formatLargeNumber(netIncome),
+      'Sales': formatLargeNumber(revenue),
+      'Book/sh': fmt(m.bookValuePerShareTTM),
+      'Cash/sh': fmt(m.cashPerShareTTM),
+      'Dividend': p.lastDiv ? `$${Number(p.lastDiv).toFixed(2)}` : '-',
+      'Dividend %': divYield != null ? `${(Number(divYield) * 100).toFixed(2)}%` : (p.lastDiv && price ? `${(p.lastDiv / price * 100).toFixed(2)}%` : '-'),
+      'Beta': fmt(p.beta),
+      'ATR': atr || '-',
+      'Volatility': volatility,
+      'P/E': fmt(q.pe || r.peRatioTTM),
+      'Forward P/E': fmt(r.forwardPERatioTTM),
+      'PEG': fmt(r.priceEarningsToGrowthRatioTTM),
+      'P/S': fmt(r.priceToSalesRatioTTM),
+      'P/B': fmt(r.priceToBookRatioTTM),
+      'P/C': fmt(r.priceCashFlowRatioTTM),
+      'P/FCF': fmt(r.priceToFreeCashFlowsRatioTTM),
+      'Quick Ratio': fmt(r.quickRatioTTM),
+      'Current Ratio': fmt(r.currentRatioTTM),
+      'Debt/Eq': fmt(r.debtEquityRatioTTM),
+      'LT Debt/Eq': fmt(r.longTermDebtToCapitalizationTTM),
+      'EPS (ttm)': fmt(q.eps),
+      'EPS next Y': g.epsgrowth != null ? fmtPct(g.epsgrowth, 0) : '-',
+      'EPS next Q': '-',
+      'EPS this Y': g.epsgrowth != null ? fmtPct(g.epsgrowth, 0) : '-',
+      'EPS next 5Y': g.fiveYRevenueGrowthPerShare != null ? fmtPct(g.fiveYRevenueGrowthPerShare, 0) : '-',
+      'EPS past 5Y': g.fiveYNetIncomeGrowthPerShare != null ? fmtPct(g.fiveYNetIncomeGrowthPerShare, 0) : '-',
+      'Sales Q/Q': g.revenueGrowth != null ? fmtPct(g.revenueGrowth, 1) : '-',
+      'EPS Q/Q': g.epsgrowth != null ? fmtPct(g.epsgrowth, 1) : '-',
+      'ROA': r.returnOnAssetsTTM != null ? fmtPct(r.returnOnAssetsTTM) : '-',
+      'ROE': r.returnOnEquityTTM != null ? fmtPct(r.returnOnEquityTTM) : '-',
+      'ROI': r.returnOnCapitalEmployedTTM != null ? fmtPct(r.returnOnCapitalEmployedTTM) : '-',
+      'Insider Own': '-',
+      'Shs Outstand': q.sharesOutstanding ? `${(q.sharesOutstanding / 1e6).toFixed(0)}M` : '-',
+      'Shs Float': '-',
+      'Short Float': '-',
+      'Short Ratio': '-',
+      'Target Price': q.analystTargetPrice ? `$${Number(q.analystTargetPrice).toFixed(2)}` : '-',
+      '52W Range': q.yearLow && q.yearHigh ? `$${Number(q.yearLow).toFixed(2)} - $${Number(q.yearHigh).toFixed(2)}` : '-',
+      '52W High': q.yearHigh && price ? `${((price - q.yearHigh) / q.yearHigh * 100).toFixed(2)}%` : '-',
+      '52W Low': q.yearLow && price ? `${((price - q.yearLow) / q.yearLow * 100).toFixed(2)}%` : '-',
+      'RSI (14)': rsi || '-',
+      'Change': q.changesPercentage != null ? `${Number(q.changesPercentage).toFixed(2)}%` : '-',
+    }
+  } catch (e) {
+    console.log('FMP fundamentals fetch failed:', e)
+    return null
+  }
+}
+
+function buildBasicFundamentals(stockPrice, priceHistory) {
+  const price = stockPrice || 0
+  const rsi = calculateRSI(priceHistory)
+  const atr = calculateATR(priceHistory)
+  const volatility = calculateVolatility(priceHistory)
+
+  let yearHigh = null, yearLow = null
+  if (priceHistory?.length > 0) {
+    const closes = priceHistory.map(p => p.close)
+    yearHigh = Math.max(...closes)
+    yearLow = Math.min(...closes)
+  }
+
+  const result = {}
+  const emptyFields = ['Index', 'Market Cap', 'Income', 'Sales', 'Book/sh', 'Cash/sh', 'Dividend', 'Dividend %', 'Beta',
+    'P/E', 'Forward P/E', 'PEG', 'P/S', 'P/B', 'P/C', 'P/FCF', 'Quick Ratio', 'Current Ratio', 'Debt/Eq', 'LT Debt/Eq',
+    'EPS (ttm)', 'EPS next Y', 'EPS next Q', 'EPS this Y', 'EPS next 5Y', 'EPS past 5Y', 'Sales Q/Q', 'EPS Q/Q',
+    'ROA', 'ROE', 'ROI', 'Insider Own', 'Shs Outstand', 'Shs Float', 'Short Float', 'Short Ratio', 'Target Price']
+  emptyFields.forEach(f => result[f] = '-')
+
+  result['ATR'] = atr || '-'
+  result['Volatility'] = volatility
+  result['RSI (14)'] = rsi || '-'
+  result['52W Range'] = yearHigh && yearLow ? `$${yearLow.toFixed(2)} - $${yearHigh.toFixed(2)}` : '-'
+  result['52W High'] = yearHigh && price ? `${((price - yearHigh) / yearHigh * 100).toFixed(2)}%` : '-'
+  result['52W Low'] = yearLow && price ? `${((price - yearLow) / yearLow * 100).toFixed(2)}%` : '-'
+  result['Change'] = priceHistory?.length >= 2 ? `${((priceHistory[priceHistory.length - 1].close - priceHistory[priceHistory.length - 2].close) / priceHistory[priceHistory.length - 2].close * 100).toFixed(2)}%` : '-'
+  return result
 }
 
 // ============================================================================
@@ -2211,52 +2384,8 @@ function DashboardTab() {
       setNextEarnings(nextEarn)
       setTastyMetrics(tastyData)
       
-      const finvizData = {
-        'Index': 'S&P 500',
-        'Market Cap': `$${(50 + Math.random() * 500).toFixed(0)}B`,
-        'Income': `$${(1 + Math.random() * 50).toFixed(0)}B`,
-        'Sales': `$${(10 + Math.random() * 200).toFixed(0)}B`,
-        'Book/sh': (10 + Math.random() * 50).toFixed(2),
-        'Cash/sh': (2 + Math.random() * 20).toFixed(2),
-        'Dividend': `$${(0 + Math.random() * 3).toFixed(2)}`,
-        'Dividend %': `${(0 + Math.random() * 3).toFixed(2)}%`,
-        'Beta': (0.5 + Math.random() * 1.5).toFixed(2),
-        'ATR': (2 + Math.random() * 5).toFixed(2),
-        'Volatility': `${(1 + Math.random() * 4).toFixed(1)}% ${(2 + Math.random() * 5).toFixed(1)}%`,
-        'P/E': (15 + Math.random() * 25).toFixed(2),
-        'Forward P/E': (12 + Math.random() * 20).toFixed(2),
-        'PEG': (0.5 + Math.random() * 2.5).toFixed(2),
-        'P/S': (2 + Math.random() * 8).toFixed(2),
-        'P/B': (2 + Math.random() * 10).toFixed(2),
-        'P/C': (10 + Math.random() * 25).toFixed(2),
-        'P/FCF': (15 + Math.random() * 35).toFixed(2),
-        'Quick Ratio': (0.5 + Math.random() * 2).toFixed(2),
-        'Current Ratio': (1 + Math.random() * 3).toFixed(2),
-        'Debt/Eq': (0.1 + Math.random() * 1).toFixed(2),
-        'LT Debt/Eq': (0.1 + Math.random() * 0.8).toFixed(2),
-        'EPS (ttm)': (2 + Math.random() * 10).toFixed(2),
-        'EPS next Y': `${(5 + Math.random() * 20).toFixed(0)}%`,
-        'EPS next Q': (0.5 + Math.random() * 3).toFixed(2),
-        'EPS this Y': `${(-5 + Math.random() * 30).toFixed(0)}%`,
-        'EPS next 5Y': `${(5 + Math.random() * 15).toFixed(0)}%`,
-        'EPS past 5Y': `${(5 + Math.random() * 25).toFixed(0)}%`,
-        'Sales Q/Q': `${(-5 + Math.random() * 20).toFixed(1)}%`,
-        'EPS Q/Q': `${(-10 + Math.random() * 40).toFixed(1)}%`,
-        'ROA': `${(5 + Math.random() * 20).toFixed(1)}%`,
-        'ROE': `${(10 + Math.random() * 30).toFixed(1)}%`,
-        'ROI': `${(8 + Math.random() * 25).toFixed(1)}%`,
-        'Insider Own': `${(0.1 + Math.random() * 5).toFixed(2)}%`,
-        'Shs Outstand': `${(100 + Math.random() * 1000).toFixed(0)}M`,
-        'Shs Float': `${(100 + Math.random() * 900).toFixed(0)}M`,
-        'Short Float': `${(0.5 + Math.random() * 5).toFixed(2)}%`,
-        'Short Ratio': (1 + Math.random() * 5).toFixed(2),
-        'Target Price': `$${(price * (0.9 + Math.random() * 0.3)).toFixed(2)}`,
-        '52W Range': `$${(price * 0.7).toFixed(2)} - $${(price * 1.2).toFixed(2)}`,
-        '52W High': `${(-5 - Math.random() * 15).toFixed(2)}%`,
-        '52W Low': `${(10 + Math.random() * 40).toFixed(2)}%`,
-        'RSI (14)': (30 + Math.random() * 40).toFixed(2),
-        'Change': `${(-3 + Math.random() * 6).toFixed(2)}%`,
-      }
+      // Fetch real fundamentals from FMP API (fallback to calculated technicals)
+      const finvizData = await fetchFMPFundamentals(ticker, price, history) || buildBasicFundamentals(price, history)
       setFundamentals(finvizData)
       
       const processed = processOptionsData(optionsRes, price)
