@@ -654,16 +654,19 @@ async function fetchFMPFundamentals(ticker, stockPrice, priceHistory) {
   }
   const base = 'https://financialmodelingprep.com/api/v3'
   try {
-    const [quoteRes, ratiosRes, metricsRes, growthRes, profileRes] = await Promise.all([
+    const [quoteRes, ratiosRes, metricsRes, growthRes, growthQRes, profileRes] = await Promise.all([
       fetch(`${base}/quote/${ticker}?apikey=${FMP_API_KEY}`),
       fetch(`${base}/ratios-ttm/${ticker}?apikey=${FMP_API_KEY}`),
       fetch(`${base}/key-metrics-ttm/${ticker}?apikey=${FMP_API_KEY}`),
       fetch(`${base}/financial-growth/${ticker}?limit=1&apikey=${FMP_API_KEY}`),
+      fetch(`${base}/financial-growth/${ticker}?limit=1&period=quarter&apikey=${FMP_API_KEY}`),
       fetch(`${base}/profile/${ticker}?apikey=${FMP_API_KEY}`)
     ])
     const [quoteArr, ratiosArr, metricsArr, growthArr, profileArr] = await Promise.all([
       quoteRes.json(), ratiosRes.json(), metricsRes.json(), growthRes.json(), profileRes.json()
     ])
+    // Quarterly growth fetch is non-critical — don't let it break the whole function
+    const growthQArr = growthQRes.ok ? await growthQRes.json().catch(() => []) : []
 
     // Check for API errors
     if (quoteArr?.['Error Message'] || !quoteArr?.[0]) {
@@ -675,6 +678,7 @@ async function fetchFMPFundamentals(ticker, stockPrice, priceHistory) {
     const r = ratiosArr?.[0] || {}
     const m = metricsArr?.[0] || {}
     const g = growthArr?.[0] || {}
+    const gq = growthQArr?.[0] || {}  // quarterly growth — for Q/Q metrics
     const p = profileArr?.[0] || {}
     const price = stockPrice || q.price || 0
 
@@ -684,20 +688,37 @@ async function fetchFMPFundamentals(ticker, stockPrice, priceHistory) {
     const rsi = calculateRSI(priceHistory)
     const atr = calculateATR(priceHistory)
     const volatility = calculateVolatility(priceHistory)
-    const shares = q.sharesOutstanding || p.volAvg || 0
-    const netIncome = m.netIncomePerShareTTM ? m.netIncomePerShareTTM * shares : null
-    const revenue = m.revenuePerShareTTM ? m.revenuePerShareTTM * shares : null
+
+    // BUG FIX: p.volAvg is average daily VOLUME, not shares outstanding. Removed as fallback.
+    const shares = q.sharesOutstanding || 0
+
+    // BUG FIX: Use Polygon's live stockPrice × FMP shares for a fresh market cap.
+    // FMP's q.marketCap is often stale (cached). stockPrice comes from Polygon (real-time).
+    const liveMarketCap = (stockPrice && shares) ? stockPrice * shares : (q.marketCap || p.mktCap || 0)
+
+    // BUG FIX: Income = EPS × shares (EPS from quote is fresher than key-metrics-ttm per share).
+    // Revenue = liveMarketCap / P/S ratio (avoids the stale per-share × shares math).
+    const netIncome = (q.eps != null && shares) ? q.eps * shares
+                    : (m.netIncomePerShareTTM && shares ? m.netIncomePerShareTTM * shares : null)
+    const revenue = (liveMarketCap && r.priceToSalesRatioTTM) ? liveMarketCap / r.priceToSalesRatioTTM
+                  : (m.revenuePerShareTTM && shares ? m.revenuePerShareTTM * shares : null)
+
     const divYield = r.dividendYielPercentageTTM ?? r.dividendYieldPercentageTTM ?? r.dividendYielTTM ?? r.dividendYieldTTM
+    // BUG FIX: FMP occasionally returns a tiny non-zero lastDiv for non-dividend stocks (e.g. TSLA).
+    // Only display dividend info when lastDiv is meaningfully above zero.
+    const hasDividend = p.lastDiv > 0.01
 
     return {
       'Index': p.exchangeShortName || q.exchange || '-',
-      'Market Cap': formatLargeNumber(q.marketCap || p.mktCap),
+      // BUG FIX: Use liveMarketCap (Polygon price × FMP shares) instead of stale FMP marketCap.
+      'Market Cap': formatLargeNumber(liveMarketCap || q.marketCap || p.mktCap),
       'Income': formatLargeNumber(netIncome),
       'Sales': formatLargeNumber(revenue),
       'Book/sh': fmt(m.bookValuePerShareTTM),
       'Cash/sh': fmt(m.cashPerShareTTM),
-      'Dividend': p.lastDiv ? `$${Number(p.lastDiv).toFixed(2)}` : '-',
-      'Dividend %': divYield != null ? `${(Number(divYield) * 100).toFixed(2)}%` : (p.lastDiv && price ? `${(p.lastDiv / price * 100).toFixed(2)}%` : '-'),
+      // BUG FIX: Only show dividend when stock actually pays one.
+      'Dividend': hasDividend ? `$${Number(p.lastDiv).toFixed(2)}` : '-',
+      'Dividend %': hasDividend ? (divYield != null ? `${(Number(divYield) * 100).toFixed(2)}%` : `${(p.lastDiv / price * 100).toFixed(2)}%`) : '-',
       'Beta': fmt(p.beta),
       'ATR': atr || '-',
       'Volatility': volatility,
@@ -716,15 +737,20 @@ async function fetchFMPFundamentals(ticker, stockPrice, priceHistory) {
       'EPS next Y': g.epsgrowth != null ? fmtPct(g.epsgrowth, 0) : '-',
       'EPS next Q': '-',
       'EPS this Y': g.epsgrowth != null ? fmtPct(g.epsgrowth, 0) : '-',
-      'EPS next 5Y': g.fiveYRevenueGrowthPerShare != null ? fmtPct(g.fiveYRevenueGrowthPerShare, 0) : '-',
+      // BUG FIX: Was using fiveYRevenueGrowthPerShare (REVENUE) mislabelled as EPS next 5Y.
+      // No reliable forward 5Y EPS estimate in FMP free tier — show '-'.
+      'EPS next 5Y': '-',
       'EPS past 5Y': g.fiveYNetIncomeGrowthPerShare != null ? fmtPct(g.fiveYNetIncomeGrowthPerShare, 0) : '-',
-      'Sales Q/Q': g.revenueGrowth != null ? fmtPct(g.revenueGrowth, 1) : '-',
-      'EPS Q/Q': g.epsgrowth != null ? fmtPct(g.epsgrowth, 1) : '-',
+      // BUG FIX: Q/Q metrics now use quarterly financial-growth (period=quarter), not annual YoY.
+      // Annual data had wrong sign and magnitude (TSLA: app showed +27.4% vs real -63.92%).
+      'Sales Q/Q': gq.revenueGrowth != null ? fmtPct(gq.revenueGrowth, 1) : (g.revenueGrowth != null ? fmtPct(g.revenueGrowth, 1) : '-'),
+      'EPS Q/Q': gq.epsgrowth != null ? fmtPct(gq.epsgrowth, 1) : (g.epsgrowth != null ? fmtPct(g.epsgrowth, 1) : '-'),
       'ROA': r.returnOnAssetsTTM != null ? fmtPct(r.returnOnAssetsTTM) : '-',
       'ROE': r.returnOnEquityTTM != null ? fmtPct(r.returnOnEquityTTM) : '-',
-      'ROI': r.returnOnCapitalEmployedTTM != null ? fmtPct(r.returnOnCapitalEmployedTTM) : '-',
+      // BUG FIX: Was using ROCE (returnOnCapitalEmployed). ROIC from key-metrics is closer to Finviz's ROI.
+      'ROI': m.roicTTM != null ? fmtPct(m.roicTTM) : (r.returnOnCapitalEmployedTTM != null ? fmtPct(r.returnOnCapitalEmployedTTM) : '-'),
       'Insider Own': '-',
-      'Shs Outstand': q.sharesOutstanding ? `${(q.sharesOutstanding / 1e6).toFixed(0)}M` : '-',
+      'Shs Outstand': shares ? `${(shares / 1e6).toFixed(0)}M` : '-',
       'Shs Float': '-',
       'Short Float': '-',
       'Short Ratio': '-',

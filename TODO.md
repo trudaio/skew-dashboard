@@ -4,30 +4,40 @@ Known issues and planned improvements for Skew Dashboard v14.
 
 ## Bugs
 
-- [ ] **`.env.example` missing `VITE_FMP_API_KEY`** — New devs setting up won't know this key exists. Add it.
-- [ ] **Scanner max date range silently truncated** — `maxEndDate` in DashboardTab caps at 6 months from startDate. If user selects a later end date it's silently clamped with no UI feedback.
-- [ ] **TastyTrade refresh token rotation** — The refresh token itself can expire or be invalidated. There's no user-visible error state if token refresh fails (silently returns `null`, shows no TastyTrade data).
-- [ ] **Backtest: "expiry not yet reached" shown as non-error** — When the target expiry is in the future, the log shows it as `info` but results show `null` P&L. Confusing UX.
+- [x] **~~`p.volAvg` used as shares outstanding fallback~~** — Fixed 2026-04-07. `p.volAvg` is trading volume, not shares. Caused wrong Income/Sales. Now uses `q.sharesOutstanding || 0`.
+- [x] **~~Market Cap stale from FMP~~** — Fixed 2026-04-07. Now computed as `stockPrice (Polygon, live) × sharesOutstanding`. TSLA: $408B → ~$1,100B.
+- [x] **~~Income and Sales wrong~~** — Fixed 2026-04-07. Income = `q.eps × shares`. Revenue = `liveMarketCap / P/S ratio`.
+- [x] **~~Dividend shown for non-dividend stocks (TSLA)~~** — Fixed 2026-04-07. Added `p.lastDiv > 0.01` threshold.
+- [x] **~~Sales Q/Q and EPS Q/Q used annual data~~** — Fixed 2026-04-07. Added separate quarterly growth fetch (`period=quarter`). TSLA EPS Q/Q: +27.4% → real -63.92%.
+- [x] **~~EPS next 5Y mapped to revenue growth~~** — Fixed 2026-04-07. Now shows `-` (no reliable source in FMP free tier).
+- [x] **~~ROI mapped to ROCE~~** — Fixed 2026-04-07. Now tries `m.roicTTM` (ROIC) first.
+
+- [ ] **`.env.example` missing `VITE_FMP_API_KEY`** — New devs won't know this key exists. Add it.
+- [ ] **ATR uses close-only (not true ATR)** — `calculateATR` uses `|close[i] - close[i-1]|`. True ATR needs high/low. `fetchPriceHistory` fetches from Polygon `/range/1/day/` which returns OHLC — but only `r.c` (close) and `r.v` (volume) are mapped. Fix: also map `r.h` (high) and `r.l` (low), then compute true ATR. TSLA: app 2.45 vs Finviz 14.83.
+- [ ] **FMP free tier data is stale for some fields** — `q.pe`, `q.eps`, ratios-ttm may lag days/weeks for high-profile tickers. Not a code bug. Fix: upgrade to FMP paid tier or switch fundamentals provider.
+- [ ] **`LT Debt/Eq` uses debt-to-capitalization, not debt-to-equity** — `r.longTermDebtToCapitalizationTTM` = LT Debt / (LT Debt + Equity) ≠ Finviz's LT Debt / Equity. FMP free tier doesn't expose the right field. TSLA: 0.59 vs Finviz 0.15.
+- [ ] **`EPS next Y` and `EPS this Y` show same value** — Both use `g.epsgrowth` (annual). Different concepts, no better source in free tier.
+- [ ] **Scanner max date range silently truncated** — `maxEndDate` caps at 6 months with no UI feedback to user.
+- [ ] **TastyTrade refresh token expiry** — No user-visible error if refresh token is invalidated. Silently shows no TastyTrade data.
+- [ ] **Backtest: "expiry not yet reached" shows as `info` not warning** — When target expiry is in the future, result is `null` P&L with no clear explanation.
 
 ## Missing Features
 
-- [ ] **Rolling backtest** — Current backtest simulates a single trade entry. Real strategy evaluation needs multi-entry simulation (e.g., sell a new contract every Friday for 1 year).
-- [ ] **`buildBasicFundamentals` is thin** — When `VITE_FMP_API_KEY` is missing, the fallback only produces RSI, ATR, HV, 52W range. No P/E, market cap, beta, or sector — half the FinViz table shows `-`.
-- [ ] **No error boundaries** — A single failed fetch in DashboardTab sets `error` state and hides all data. ScannerTab's per-ticker errors are handled, but a crash in a chart component would blank the tab silently.
-- [ ] **Scanner no persistence** — Scan results are lost on tab switch or page refresh. Could save to `localStorage`.
-- [ ] **No loading skeleton for TickerSelector** — While data is fetching, the entire card is replaced with a spinner. The ticker grid flashes away.
-- [ ] **Date range doesn't auto-refresh on change** — Changing start/end date in DashboardTab requires clicking "Refresh" manually. The `fetchData` callback depends on `[startDate, endDate]` but `handleSelect` is memoized; the date picker changes don't trigger a reload.
+- [ ] **Rolling backtest** — Single trade entry only. Real strategy evaluation needs multi-entry simulation (sell every Friday for 1 year).
+- [ ] **`buildBasicFundamentals` fallback is thin** — When no FMP key: only RSI, ATR, HV, 52W range. No P/E, market cap, beta. Half the table shows `-`.
+- [ ] **No error boundaries** — Crash in a chart component would blank the tab silently.
+- [ ] **Scanner results not persisted** — Lost on tab switch or refresh. `localStorage` would help.
+- [ ] **Date range doesn't auto-refresh** — Changing dates requires manual Refresh click.
+- [ ] **FMP now fires 6 parallel requests** (was 5) — Added quarterly growth fetch. FMP free tier: 250 req/day. Monitor if this becomes a problem with heavy use.
 
 ## Code Quality
 
-- [ ] **App.jsx is ~3000 lines** — Workable but slow to navigate. Logical splits when the time comes: `api/`, `utils/`, `components/`, `tabs/`.
-- [ ] **No TypeScript** — No static type checking. `processOptionsData` returns a complex nested object with no documented shape.
-- [ ] **Global `apiClient` singleton** — Makes testing/mocking hard if tests are ever added. Consider exporting from a module.
-- [ ] **`analyzeAndSuggestTrades` is long** — Does IV rank, performance calc, insights generation, and trade suggestions. Could be split.
-- [ ] **Scanner `delay` state** — Stored in component state but also controls an async loop via closure. If user changes delay mid-scan, it only takes effect on the next iteration (correct behavior, but surprising).
+- [ ] **App.jsx is ~3000 lines** — Logical splits when the time comes: `api/`, `utils/`, `components/`, `tabs/`.
+- [ ] **No TypeScript** — `processOptionsData` returns complex nested object with no documented shape.
+- [ ] **Global `apiClient` singleton** — Hard to test/mock. Consider module exports.
+- [ ] **`analyzeAndSuggestTrades` is long** — IV rank + performance + insights + trades. Could split.
 
 ## Performance
 
-- [ ] **FMP fires 5 parallel requests per ticker load** — `Promise.all([quote, ratios, metrics, growth, profile])`. FMP free tier has a per-minute limit. Heavy dashboard use may hit this.
-- [ ] **`processOptionsData` iterates full options list multiple times** — Once for allIVs/allOptions, once per expiration for delta matching. Fine at current scale but O(n*expirations*deltas).
-- [ ] **No caching between tab switches** — Switching from Dashboard → Scanner → Dashboard re-fetches everything.
+- [ ] **No caching between tab switches** — Dashboard → Scanner → Dashboard re-fetches everything.
+- [ ] **`processOptionsData` multi-pass** — Iterates options list once for allIVs, once per expiration × delta. Fine at current scale.
