@@ -24,13 +24,35 @@ These were active bugs confirmed by comparing with Finviz live data for TSLA.
 
 ---
 
+---
+
+## Code Review Bugs Found and Fixed (2026-04-30)
+
+These were caught in a full-project code review. All fixed in commit on `fix/data-accuracy`.
+
+**Scanner was hardcoded to Jan 4, 2026.** `getNextMonthlyExpirations()` had `const today = new Date(2026, 0, 4)`. After January 2026, every "next monthly expiration" returned was already in the past. Polygon snapshot returned no useful data. **Fix: use `new Date()` real, not hardcoded.**
+
+**TastyTrade IV Rank/Percentile/5DChange displayed at wrong scale.** API returns these as 0–1 fractions; some consumers multiplied ×100 (Dashboard `ivPercentile`, scanner `iv5DayChange`), others didn't (Dashboard `ivRank` showed "0%" for a real 0.45 rank). Scanner's `formatTastyValue` had `value.toFixed(1)*100` (string-then-multiply bug) and was missing the `%` sign. **Fix: scale ×100 ONCE inside `fetchMarketMetrics` so all consumers receive 0–100. Match thresholds (30/50) accordingly.**
+
+**`fetchNextEarnings` queried a Polygon field that doesn't exist.** `/v3/reference/tickers/{ticker}` does NOT return `next_earnings_date`. Field was always `undefined`, so the "Next Earnings" banner never appeared. **Fix: use FMP `earning_calendar?from=today&to=+90d` and pick the first row matching the ticker.**
+
+**Scanner had no 429 (rate-limit) handling.** `fetchOptionsForScanner` did `if (!res.ok) break` — silently produced zero results on rate-limit, no UI feedback. With 100 tickers × 8s delay, hitting a rate limit at least once is likely. **Fix: retry on 429 with exponential backoff (1s/2s/4s); propagate `error` field to UI; show ⚠ 429 indicator next to ticker.**
+
+**`bestPut`/`bestCall` selection had no delta cap.** When a chain only had ITM contracts, the "best match" for 10Δ could be a 0.45-delta strike — skew calculated on these is meaningless. **Fix: reject best match if `|delta - target| > 0.05`.**
+
+**`extractPremium` produced misleading mids on one-sided books.** `if (bid && ask) return (bid+ask)/2` — but for `bid=0, ask=0.05`, mid=0.025 even though there is no actual two-sided market. **Fix: require `bid > 0 && ask > 0` for the mid path.**
+
+**Backtest `±$5` strike range broke for high-priced stocks.** NVDA/GOOGL/AMZN often > $500 — a $5 window around the BS-estimated strike found no contracts. **Fix: range = `Math.max(5, entryPrice * 0.02)`.**
+
+**FMP `Promise.all` had no timeout.** If one of 6 endpoints hung, dashboard stayed "Loading..." forever. **Fix: `AbortSignal.timeout(10_000)` on all FMP fetches.**
+
+---
+
 ## Remaining Known FMP Inaccuracies (not yet fixed)
 
 **FMP free tier serves stale data for high-profile tickers.** Even after the market cap fix, some FMP fields (`q.pe`, `q.eps`, ratios) may lag behind reality by days or weeks for heavily-followed stocks like TSLA, NVDA, AAPL. This is an FMP tier limitation, not a code bug. Upgrading to FMP paid tier or switching to a different fundamentals API is the real fix.
 
 **`LT Debt/Eq` uses debt-to-capitalization, not debt-to-equity.** `r.longTermDebtToCapitalizationTTM` = LT Debt / (LT Debt + Equity). Finviz shows LT Debt / Equity. FMP free tier doesn't expose `longTermDebtToEquityRatioTTM` directly in ratios-ttm. The numbers will differ (TSLA: 0.59 vs Finviz 0.15). Accepted for now.
-
-**ATR calculation uses close-to-close differences, not true ATR.** `calculateATR` computes `|close[i] - close[i-1]|` averaged over 14 days. True ATR uses `max(high-low, |high-prev_close|, |low-prev_close|)`. Polygon price history returns only `close` and `volume` (no high/low), so true ATR is impossible with the current data source. Our ATR will always be lower than Finviz's ATR. To fix: fetch OHLC bars (`/v2/aggs/ticker/{ticker}/range/1/day/...` already done in `fetchPriceHistory` — but `high` field `r.h` is not mapped). See TODO.
 
 **Beta from FMP profile may differ from Finviz.** Different calculation windows and benchmark periods. TSLA: app 0.77 vs Finviz 1.93. No code fix — FMP methodology differs from Finviz.
 
@@ -46,7 +68,7 @@ These were active bugs confirmed by comparing with Finviz live data for TSLA.
 
 ## API / Data Fetching
 
-**`VITE_FMP_API_KEY` is not in `.env.example`.** If fundamentals look empty, check this key is in `.env`. App silently falls back to `buildBasicFundamentals` when missing.
+**`VITE_FMP_API_KEY` controls fundamentals.** Listed in `.env.example`. App silently falls back to `buildBasicFundamentals` (calculated technicals only) when missing.
 
 **Polygon.io `next_url` pagination.** `fetchOptions` and `fetchOptionsForScanner` loop `while (url)` following `next_url`. Don't break this loop — you'll silently miss deep-OTM options.
 
@@ -62,7 +84,7 @@ These were active bugs confirmed by comparing with Finviz live data for TSLA.
 
 **Put deltas are negative in raw Polygon data.** `greeks.delta` for puts = e.g. `-0.10`. `processOptionsData` matches with `Math.abs(p.delta - putTarget)` where `putTarget = -d/100`. Don't negate again.
 
-**`extractPremium` uses mid-price, not last.** Uses `(ask + bid) / 2`. Don't use `day.last_price` for premium calculations.
+**`extractPremium` uses mid-price, not last.** Uses `(ask + bid) / 2` and **requires both bid and ask > 0** to avoid distorted mids on one-sided books. Don't use `day.last_price` for premium calculations.
 
 **Monthly expiration detection is day-range based.** `isMonthlyExpiration` checks `dayOfMonth >= 15 && dayOfMonth <= 21 && dayOfWeek === 5`. Don't replace with a calendar library — it would break `getNextMonthlyExpirations`.
 
@@ -84,7 +106,7 @@ These were active bugs confirmed by comparing with Finviz live data for TSLA.
 
 **Black-Scholes vol uses `HV * 1.1`.** Rough approximation; not calibrated. Don't treat results as precise.
 
-**Backtest strike range `±5` misses high-priced stocks.** For NVDA > $800, the ±5 range around the estimated strike may find nothing. Code logs but doesn't retry.
+**Backtest strike range scales with price.** Uses `Math.max(5, entryPrice * 0.02)`. For NVDA > $800, that becomes ±$16 — wide enough to find contracts. Don't revert to fixed ±$5.
 
 **Null P&L ≠ loss.** `fetchOptionHistoricalPrice` returns `null` when option didn't trade that day. P&L is set to `null`, not 0.
 

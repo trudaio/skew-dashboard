@@ -357,13 +357,13 @@ function getThirdFriday(year, month) {
   return new Date(year, month, thirdFridayDay)
 }
 
-// Get the next 3 monthly expirations from today (using 2026)
+// Get the next 3 monthly expirations from today
 function getNextMonthlyExpirations() {
-  // Use 2026 as the base year
-  const currentYear = 2026
-  const currentMonth = 0 // January
-  const today = new Date(2026, 0, 4) // January 4, 2026
-  
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const currentYear = today.getFullYear()
+  const currentMonth = today.getMonth()
+
   const expirations = []
   let year = currentYear
   let month = currentMonth
@@ -408,9 +408,9 @@ function calculatePerformance(priceHistory, currentPrice) {
 function extractPremium(opt) {
   if (opt.last_quote) {
     if (opt.last_quote.midpoint && opt.last_quote.midpoint > 0) return opt.last_quote.midpoint
-    if (opt.last_quote.bid && opt.last_quote.ask) return (opt.last_quote.bid + opt.last_quote.ask) / 2
-    if (opt.last_quote.ask && opt.last_quote.ask > 0) return opt.last_quote.ask
-    if (opt.last_quote.bid && opt.last_quote.bid > 0) return opt.last_quote.bid
+    // Require BOTH sides quoted — a one-sided book on illiquid contracts produces
+    // misleading mids that distort skew calculations.
+    if (opt.last_quote.bid > 0 && opt.last_quote.ask > 0) return (opt.last_quote.bid + opt.last_quote.ask) / 2
   }
   if (opt.day) {
     if (opt.day.close && opt.day.close > 0) return opt.day.close
@@ -660,13 +660,16 @@ async function fetchFMPFundamentals(ticker, stockPrice, priceHistory) {
   }
   const base = 'https://financialmodelingprep.com/api/v3'
   try {
+    // 10s timeout — if FMP is slow or hangs on one endpoint, the whole dashboard
+    // would otherwise stay "Loading..." indefinitely.
+    const signal = AbortSignal.timeout(10_000)
     const [quoteRes, ratiosRes, metricsRes, growthRes, growthQRes, profileRes] = await Promise.all([
-      fetch(`${base}/quote/${ticker}?apikey=${FMP_API_KEY}`),
-      fetch(`${base}/ratios-ttm/${ticker}?apikey=${FMP_API_KEY}`),
-      fetch(`${base}/key-metrics-ttm/${ticker}?apikey=${FMP_API_KEY}`),
-      fetch(`${base}/financial-growth/${ticker}?limit=1&apikey=${FMP_API_KEY}`),
-      fetch(`${base}/financial-growth/${ticker}?limit=1&period=quarter&apikey=${FMP_API_KEY}`),
-      fetch(`${base}/profile/${ticker}?apikey=${FMP_API_KEY}`)
+      fetch(`${base}/quote/${ticker}?apikey=${FMP_API_KEY}`, { signal }),
+      fetch(`${base}/ratios-ttm/${ticker}?apikey=${FMP_API_KEY}`, { signal }),
+      fetch(`${base}/key-metrics-ttm/${ticker}?apikey=${FMP_API_KEY}`, { signal }),
+      fetch(`${base}/financial-growth/${ticker}?limit=1&apikey=${FMP_API_KEY}`, { signal }),
+      fetch(`${base}/financial-growth/${ticker}?limit=1&period=quarter&apikey=${FMP_API_KEY}`, { signal }),
+      fetch(`${base}/profile/${ticker}?apikey=${FMP_API_KEY}`, { signal })
     ])
     const [quoteArr, ratiosArr, metricsArr, growthArr, profileArr] = await Promise.all([
       quoteRes.json(), ratiosRes.json(), metricsRes.json(), growthRes.json(), profileRes.json()
@@ -860,15 +863,22 @@ class APIClient {
   }
   
   async fetchNextEarnings(ticker) {
+    // Polygon /v3/reference/tickers does NOT return next_earnings_date.
+    // Use FMP earning_calendar (next 90 days) and pick the first entry for this ticker.
+    if (!FMP_API_KEY) return null
     try {
-      const url = `${this.base}/v3/reference/tickers/${ticker}?apiKey=${this.key}`
+      const today = new Date()
+      const future = new Date()
+      future.setDate(future.getDate() + 90)
+      const fmt = d => d.toISOString().slice(0, 10)
+      const url = `https://financialmodelingprep.com/api/v3/earning_calendar?from=${fmt(today)}&to=${fmt(future)}&apikey=${FMP_API_KEY}`
       const res = await fetch(url)
-      if (res.ok) {
-        const data = await res.json()
-        return data.results?.next_earnings_date || null
-      }
-    } catch (e) { console.log('Next earnings fetch failed:', e) }
-    return null
+      if (!res.ok) return null
+      const data = await res.json()
+      if (!Array.isArray(data)) return null
+      const match = data.find(item => item.symbol === ticker)
+      return match?.date || null
+    } catch (e) { console.log('Next earnings fetch failed:', e); return null }
   }
   
   // Fetch options contracts reference (for backtest - find available strikes)
@@ -908,26 +918,39 @@ class APIClient {
   // Scanner: Fetch options for monthly expirations only
   async fetchOptionsForScanner(ticker, monthlyDates) {
     const price = await this.fetchStockPrice(ticker)
-    if (!price) return { results: [], price: null }
-    
+    if (!price) return { results: [], price: null, error: 'no-price' }
+
     const startDate = monthlyDates[0]
     const endDate = monthlyDates[monthlyDates.length - 1]
-    
+
     let results = []
+    let error = null
     try {
       let url = `${this.base}/v3/snapshot/options/${ticker}?expiration_date.gte=${startDate}&expiration_date.lte=${endDate}&limit=250&apiKey=${this.key}`
       while (url) {
-        const res = await fetch(url)
-        if (!res.ok) break
+        let res = await fetch(url)
+        // Retry on 429 with exponential backoff (1s, 2s, 4s)
+        let retries = 0
+        while (res.status === 429 && retries < 3) {
+          const wait = 1000 * Math.pow(2, retries)
+          await new Promise(r => setTimeout(r, wait))
+          res = await fetch(url)
+          retries++
+        }
+        if (!res.ok) {
+          error = res.status === 429 ? 'rate-limited' : `http-${res.status}`
+          break
+        }
         const data = await res.json()
         if (data.results) results = results.concat(data.results)
         url = data.next_url ? `${data.next_url}&apiKey=${this.key}` : null
       }
     } catch (e) {
       console.log(`Scanner: Failed to fetch ${ticker}:`, e)
+      error = 'network'
     }
-    
-    return { results, price }
+
+    return { results, price, error }
   }
 }
 
@@ -1015,10 +1038,14 @@ class TastyTradeClient {
       // Parse the response - TastyTrade returns items array
       if (data.data && data.data.items) {
         data.data.items.forEach(item => {
+          // TastyTrade returns rank/percentile/change as 0–1 fractions; scale to 0–100 once here.
+          const rawRank = item['implied-volatility-index-rank']
+          const rawPct = item['implied-volatility-percentile']
+          const rawChg = item['implied-volatility-index-5-day-change']
           metrics[item.symbol] = {
-            ivRank: item['implied-volatility-index-rank'] ? parseFloat(item['implied-volatility-index-rank']) : null,
-            ivPercentile: item['implied-volatility-percentile'] ? parseFloat(item['implied-volatility-percentile']) : null,
-            iv5DayChange: item['implied-volatility-index-5-day-change'] ? parseFloat(item['implied-volatility-index-5-day-change']) : null,
+            ivRank: rawRank != null && rawRank !== '' ? parseFloat(rawRank) * 100 : null,
+            ivPercentile: rawPct != null && rawPct !== '' ? parseFloat(rawPct) * 100 : null,
+            iv5DayChange: rawChg != null && rawChg !== '' ? parseFloat(rawChg) * 100 : null,
             liquidityRank: item['liquidity-rank'] ? parseFloat(item['liquidity-rank']) : (item['liquidity-rating'] || null),
             ivIndex: item['implied-volatility-index'] ? parseFloat(item['implied-volatility-index']) : null,
           }
@@ -1081,10 +1108,15 @@ function processOptionsData(response, stockPrice) {
     DELTAS.forEach(d => {
       const putTarget = -d / 100
       const callTarget = d / 100
+      // Reject "best" matches farther than 0.05 from target — illiquid chains otherwise
+      // produce skew values from non-representative strikes (e.g. only ITM contracts).
+      const DELTA_CAP = 0.05
       let bestPut = null, bestPutDiff = Infinity
       puts.forEach(p => { if (p.delta !== undefined && Math.abs(p.delta - putTarget) < bestPutDiff) { bestPutDiff = Math.abs(p.delta - putTarget); bestPut = p } })
+      if (bestPutDiff > DELTA_CAP) bestPut = null
       let bestCall = null, bestCallDiff = Infinity
       calls.forEach(c => { if (c.delta !== undefined && Math.abs(c.delta - callTarget) < bestCallDiff) { bestCallDiff = Math.abs(c.delta - callTarget); bestCall = c } })
+      if (bestCallDiff > DELTA_CAP) bestCall = null
       
       if (bestPut && bestCall) {
         const putDistance = stockPrice ? stockPrice - bestPut.strike : null
@@ -1765,18 +1797,18 @@ function KeyMetrics({ analysis, stockPrice, tastyMetrics }) {
               <div className="metric-label">IV Rank</div>
               <div className="metric-sub">TastyTrade</div>
             </div>
-            
+
             <div className="metric-card" style={{ borderColor: '#fda4af', background: '#fff1f2' }}>
-              <div className="metric-value" style={{ color: (tastyMetrics.ivPercentile * 100) > 50 ? '#ef4444' : (tastyMetrics.ivPercentile * 100) < 30 ? '#22c55e' : '#f59e0b' }}>
-                {tastyMetrics.ivPercentile !== null ? `${Math.round(tastyMetrics.ivPercentile * 100)}%` : '-'}
+              <div className="metric-value" style={{ color: tastyMetrics.ivPercentile > 50 ? '#ef4444' : tastyMetrics.ivPercentile < 30 ? '#22c55e' : '#f59e0b' }}>
+                {tastyMetrics.ivPercentile !== null ? `${Math.round(tastyMetrics.ivPercentile)}%` : '-'}
               </div>
               <div className="metric-label">IV Percentile</div>
               <div className="metric-sub">TastyTrade</div>
             </div>
-            
+
             <div className="metric-card" style={{ borderColor: '#fda4af', background: '#fff1f2' }}>
               <div className="metric-value" style={{ color: tastyMetrics.iv5DayChange > 0 ? '#ef4444' : tastyMetrics.iv5DayChange < 0 ? '#22c55e' : '#a0a0b0' }}>
-                {tastyMetrics.iv5DayChange !== null ? `${tastyMetrics.iv5DayChange > 0 ? '+' : ''}${(tastyMetrics.iv5DayChange * 100).toFixed(1)}%` : '-'}
+                {tastyMetrics.iv5DayChange !== null ? `${tastyMetrics.iv5DayChange > 0 ? '+' : ''}${tastyMetrics.iv5DayChange.toFixed(1)}%` : '-'}
               </div>
               <div className="metric-label">5-Day Change</div>
               <div className="metric-sub">IV Index</div>
@@ -2155,16 +2187,17 @@ function ScannerTab() {
       try {
         const response = await apiClient.fetchOptionsForScanner(ticker, monthlyDates)
         const processed = processScannerData(response.results, response.price, ticker, monthlyDates)
-        
-        // Add TastyTrade metrics
+
+        // Add TastyTrade metrics + propagate any fetch error so UI can flag it
         const tastyData = tastyMetricsMap[ticker] || null
         processed.tastyMetrics = tastyData
-        
+        processed.fetchError = response.error || null
+
         setScannerData(prev => [...prev, processed])
       } catch (e) {
         console.log(`Error fetching ${ticker}:`, e)
         // Still add entry with just ticker name
-        setScannerData(prev => [...prev, { ticker, price: null, skewByDate: {}, tastyMetrics: tastyMetricsMap[ticker] || null }])
+        setScannerData(prev => [...prev, { ticker, price: null, skewByDate: {}, tastyMetrics: tastyMetricsMap[ticker] || null, fetchError: 'network' }])
       }
       
       // Delay before next request (unless last one)
@@ -2245,17 +2278,17 @@ function ScannerTab() {
     
     if (type === 'ivRank' || type === 'ivPercentile') {
       const color = value > 50 ? '#ef4444' : value < 30 ? '#22c55e' : '#f59e0b'
-      return <span style={{ color, fontWeight: 600 }}>{value.toFixed(1)*100}</span>
+      return <span style={{ color, fontWeight: 600 }}>{Math.round(value)}%</span>
     }
     if (type === 'iv5DayChange') {
       const color = value > 0 ? '#ef4444' : value < 0 ? '#22c55e' : '#a0a0b0'
-      return <span style={{ color, fontWeight: 600 }}>{value > 0 ? '+' : ''}{(value * 100).toFixed(1)}%</span>
+      return <span style={{ color, fontWeight: 600 }}>{value > 0 ? '+' : ''}{value.toFixed(1)}%</span>
     }
     if (type === 'liquidityRank') {
       const color = value > 3 ? '#22c55e' : value > 1 ? '#f59e0b' : '#ef4444'
       return <span style={{ color, fontWeight: 600 }}>{value.toFixed(0)}</span>
     }
-    return value
+    return <span>{String(value)}</span>
   }
   
   return (
@@ -2352,6 +2385,12 @@ function ScannerTab() {
                   <tr key={row.ticker}>
                     <td style={{ fontWeight: 700, color: '#2563eb' }}>
                       {row.ticker}
+                      {row.fetchError === 'rate-limited' && (
+                        <span title="Rate limited by Polygon (429)" style={{ marginLeft: 6, color: '#f59e0b', fontSize: 11 }}>⚠ 429</span>
+                      )}
+                      {row.fetchError && row.fetchError !== 'rate-limited' && (
+                        <span title={`Fetch error: ${row.fetchError}`} style={{ marginLeft: 6, color: '#ef4444', fontSize: 11 }}>⚠</span>
+                      )}
                     </td>
                     <td className="right price-cell">
                       {row.price ? `$${row.price.toFixed(2)}` : '-'}
@@ -2594,16 +2633,20 @@ function BacktestTab() {
 
       const trades = []
 
+      // Strike search range scales with price (min $5, else 2% of entry).
+      // Hardcoded ±$5 misses everything on NVDA / GOOGL / AMZN / NFLX > $500.
+      const strikeRange = Math.max(5, entryPrice * 0.02)
+
       if (strategy === 'sell_put' || strategy === 'sell_strangle') {
         const putStrike = findStrikeForDelta(targetDelta, 'put')
         const putDelta = bsDelta(entryPrice, putStrike, T, sigma, 0.045, 'put')
         addLog(`Estimated ${targetDelta}Δ put strike: $${putStrike} (calc delta: ${putDelta.toFixed(3)})`)
 
         // Step 5: Fetch available put contracts near this strike
-        addLog(`Fetching put contracts near $${putStrike}...`)
+        addLog(`Fetching put contracts near $${putStrike} (±$${strikeRange.toFixed(0)})...`)
         const putContracts = await apiClient.fetchOptionsContracts(
           ticker, expiryDateStr, 'put',
-          putStrike - 5, putStrike + 5
+          putStrike - strikeRange, putStrike + strikeRange
         )
 
         if (putContracts.length === 0) {
@@ -2615,7 +2658,7 @@ function BacktestTab() {
             altExpiry.setDate(altExpiry.getDate() + offset)
             const altExpiryStr = altExpiry.toISOString().split('T')[0]
             const altContracts = await apiClient.fetchOptionsContracts(
-              ticker, altExpiryStr, 'put', putStrike - 5, putStrike + 5
+              ticker, altExpiryStr, 'put', putStrike - strikeRange, putStrike + strikeRange
             )
             if (altContracts.length > 0) {
               putContracts.push(...altContracts)
@@ -2705,10 +2748,10 @@ function BacktestTab() {
         const callDelta = bsDelta(entryPrice, callStrike, T, sigma, 0.045, 'call')
         addLog(`Estimated ${targetDelta}Δ call strike: $${callStrike} (calc delta: ${callDelta.toFixed(3)})`)
 
-        addLog(`Fetching call contracts near $${callStrike}...`)
+        addLog(`Fetching call contracts near $${callStrike} (±$${strikeRange.toFixed(0)})...`)
         const callContracts = await apiClient.fetchOptionsContracts(
           ticker, expiryDateStr, 'call',
-          callStrike - 5, callStrike + 5
+          callStrike - strikeRange, callStrike + strikeRange
         )
 
         if (callContracts.length > 0) {
