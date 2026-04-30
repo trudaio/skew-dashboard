@@ -12,14 +12,26 @@ Known issues and planned improvements for Skew Dashboard v14.
 - [x] **~~EPS next 5Y mapped to revenue growth~~** — Fixed 2026-04-07. Now shows `-` (no reliable source in FMP free tier).
 - [x] **~~ROI mapped to ROCE~~** — Fixed 2026-04-07. Now tries `m.roicTTM` (ROIC) first.
 
-- [ ] **`.env.example` missing `VITE_FMP_API_KEY`** — New devs won't know this key exists. Add it.
-- [ ] **ATR uses close-only (not true ATR)** — `calculateATR` uses `|close[i] - close[i-1]|`. True ATR needs high/low. `fetchPriceHistory` fetches from Polygon `/range/1/day/` which returns OHLC — but only `r.c` (close) and `r.v` (volume) are mapped. Fix: also map `r.h` (high) and `r.l` (low), then compute true ATR. TSLA: app 2.45 vs Finviz 14.83.
-- [ ] **FMP free tier data is stale for some fields** — `q.pe`, `q.eps`, ratios-ttm may lag days/weeks for high-profile tickers. Not a code bug. Fix: upgrade to FMP paid tier or switch fundamentals provider.
-- [ ] **`LT Debt/Eq` uses debt-to-capitalization, not debt-to-equity** — `r.longTermDebtToCapitalizationTTM` = LT Debt / (LT Debt + Equity) ≠ Finviz's LT Debt / Equity. FMP free tier doesn't expose the right field. TSLA: 0.59 vs Finviz 0.15.
-- [ ] **`EPS next Y` and `EPS this Y` show same value** — Both use `g.epsgrowth` (annual). Different concepts, no better source in free tier.
+- [x] **~~`.env.example` missing `VITE_FMP_API_KEY`~~** — Fixed 2026-04-30. Added to `.env.example`.
+- [x] **~~Scanner used hardcoded `today = 2026-01-04`~~** — Fixed 2026-04-30. `getNextMonthlyExpirations()` now uses real `new Date()`.
+- [x] **~~TastyTrade IV Rank/Percentile/5DChange wrong scale (×100 inconsistent)~~** — Fixed 2026-04-30. Scaled once in `fetchMarketMetrics`; thresholds 30/50 corrected; scanner `formatTastyValue` `%` sign added.
+- [x] **~~Scanner had no 429 handling~~** — Fixed 2026-04-30. Exponential backoff (1s/2s/4s) + UI ⚠ 429 indicator on ticker.
+- [x] **~~`fetchNextEarnings` queried non-existent Polygon field~~** — Fixed 2026-04-30. Now uses FMP `earning_calendar` (90-day window).
+- [x] **~~`bestPut`/`bestCall` no delta cap~~** — Fixed 2026-04-30. Reject match if `|delta - target| > 0.05`.
+- [x] **~~`extractPremium` produced misleading mids on one-sided books~~** — Fixed 2026-04-30. Requires both `bid > 0 && ask > 0`.
+- [x] **~~Backtest `±$5` range broke high-priced stocks~~** — Fixed 2026-04-30. Now `Math.max(5, entryPrice * 0.02)`.
+- [x] **~~FMP Promise.all had no timeout~~** — Fixed 2026-04-30. `AbortSignal.timeout(10_000)` on all 6 FMP requests.
+- [x] **~~ATR uses close-only (not true ATR)~~** — Fixed 2026-04-30. `fetchPriceHistory` now maps `r.h` (high) and `r.l` (low). `calculateATR` uses true ATR formula: `max(high-low, |high-prevClose|, |low-prevClose|)`.
+- [x] **~~FMP free tier data is stale for some fields~~** — Mitigated 2026-04-30. Affected fields (`LT Debt/Eq†`, `EPS next Y†`, `EPS this Y†`) now marked with `†` and a footnote: "Approximate — FMP free tier limitation". Underlying data source unchanged.
+- [x] **~~`LT Debt/Eq` uses debt-to-capitalization, not debt-to-equity~~** — Mitigated 2026-04-30. Labelled as `LT Debt/Eq†` with footnote. Metric unchanged (FMP free tier limitation).
+- [x] **~~`EPS next Y` and `EPS this Y` show same value~~** — Mitigated 2026-04-30. Both labelled with `†` footnote. No better source in free tier.
 - [ ] **Scanner max date range silently truncated** — `maxEndDate` caps at 6 months with no UI feedback to user.
-- [ ] **TastyTrade refresh token expiry** — No user-visible error if refresh token is invalidated. Silently shows no TastyTrade data.
+- [x] **~~TastyTrade refresh token expiry~~** — Fixed 2026-04-30. `TastyTradeClient` now tracks `authError`. Dashboard shows a red banner when token refresh fails: "TastyTrade session expired — IV Rank/Percentile unavailable".
 - [ ] **Backtest: "expiry not yet reached" shows as `info` not warning** — When target expiry is in the future, result is `null` P&L with no clear explanation.
+
+## Enhancements
+
+- [ ] **Strike by Distance — add trading volume** — Currently shows Put/Call delta and strike at ±1%, ±5%, ±10% OTM. Add volume (or open interest) per strike so we can see liquidity at each distance — a 10% OTM strike with 0 volume isn't tradeable even if the delta looks attractive. Consider a `Vol` and/or `OI` column next to each strike.
 
 ## Missing Features
 
