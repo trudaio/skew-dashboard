@@ -37,244 +37,246 @@ const DISTANCE_PERCENTS = [1, 5, 10]
 
 const styles = `
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0f; color: #f0f0f5; min-height: 100vh; }
-  .container { max-width: 1600px; margin: 0 auto; padding: 0 20px; }
-  
-  .header { background: linear-gradient(180deg, #12121a 0%, #0a0a0f 100%); border-bottom: 1px solid #2a2a3a; padding: 20px 0; }
+  body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif; background: #f5f6f8; color: #1a1d26; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+  .container { max-width: 1600px; margin: 0 auto; padding: 0 24px; }
+
+  .header { background: #ffffff; border-bottom: 1px solid #e2e8f0; padding: 14px 0; position: sticky; top: 0; z-index: 50; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
   .header-inner { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
-  .header h1 { font-size: 24px; font-weight: 700; background: linear-gradient(135deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-  .header p { font-size: 14px; color: #606070; margin-top: 4px; }
+  .header h1 { font-size: 22px; font-weight: 700; color: #1a1d26; display: flex; align-items: center; gap: 10px; }
+  .header p { font-size: 13px; color: #94a3b8; margin-top: 2px; }
   .header-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  
-  .tabs { display: flex; gap: 4px; background: #12121a; padding: 4px; border-radius: 10px; border: 1px solid #2a2a3a; }
-  .tab-btn { padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; background: transparent; color: #606070; }
-  .tab-btn:hover { color: #a0a0b0; background: #1a1a24; }
-  .tab-btn.active { background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: #fff; }
-  
-  .date-picker { display: flex; align-items: center; gap: 8px; background: #12121a; border: 1px solid #2a2a3a; border-radius: 8px; padding: 8px 12px; }
-  .date-picker input { background: transparent; border: none; color: #f0f0f5; font-size: 14px; font-family: monospace; width: 110px; outline: none; }
-  .date-picker input::-webkit-calendar-picker-indicator { filter: invert(1); }
-  .date-picker span { color: #606070; }
-  
+
+  .logo-mark { width: 32px; height: 32px; flex-shrink: 0; }
+
+  .tabs { display: flex; gap: 2px; background: #f1f5f9; padding: 3px; border-radius: 10px; border: 1px solid #e2e8f0; }
+  .tab-btn { padding: 9px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; background: transparent; color: #94a3b8; }
+  .tab-btn:hover { color: #64748b; background: #ffffff; }
+  .tab-btn.active { background: #ffffff; color: #1a1d26; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+  .date-picker { display: flex; align-items: center; gap: 8px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; }
+  .date-picker input { background: transparent; border: none; color: #1a1d26; font-size: 13px; font-family: 'JetBrains Mono', monospace; width: 110px; outline: none; }
+  .date-picker span { color: #94a3b8; }
+
   .main { padding: 24px 0; }
   .section { margin-bottom: 24px; }
-  
-  .card { background: #12121a; border: 1px solid #2a2a3a; border-radius: 12px; padding: 16px; }
-  .card-title { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-  
+
+  .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .card-title { font-size: 14px; font-weight: 600; color: #1a1d26; display: flex; align-items: center; gap: 8px; }
+
   .ticker-section { margin-bottom: 12px; }
-  .ticker-section-title { font-size: 11px; color: #606070; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+  .ticker-section-title { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; font-weight: 600; }
   .ticker-grid { display: flex; flex-wrap: wrap; gap: 5px; }
-  .ticker-btn { padding: 5px 8px; border-radius: 5px; font-size: 10px; font-family: monospace; font-weight: 600; border: 1px solid #2a2a3a; background: #1a1a24; color: #a0a0b0; cursor: pointer; transition: all 0.2s; }
-  .ticker-btn:hover { border-color: #3b82f6; color: #f0f0f5; }
-  .ticker-btn.active { background: rgba(59, 130, 246, 0.2); border-color: #3b82f6; color: #3b82f6; }
-  .ticker-btn.etf { border-color: #f59e0b40; }
-  .ticker-btn.etf.active { background: rgba(245, 158, 11, 0.2); border-color: #f59e0b; color: #f59e0b; }
-  .ticker-btn.custom { border-color: #22c55e40; }
-  .ticker-btn.custom.active { background: rgba(34, 197, 94, 0.2); border-color: #22c55e; color: #22c55e; }
+  .ticker-btn { padding: 5px 8px; border-radius: 5px; font-size: 10px; font-family: 'JetBrains Mono', monospace; font-weight: 600; border: 1px solid #e2e8f0; background: #f8f9fb; color: #64748b; cursor: pointer; transition: all 0.15s; }
+  .ticker-btn:hover { border-color: #2563eb; color: #1a1d26; background: #ffffff; }
+  .ticker-btn.active { background: #eff6ff; border-color: #2563eb; color: #2563eb; }
+  .ticker-btn.etf { border-color: #fde68a; }
+  .ticker-btn.etf.active { background: #fffbeb; border-color: #f59e0b; color: #b45309; }
+  .ticker-btn.custom { border-color: #a7f3d0; }
+  .ticker-btn.custom.active { background: #ecfdf5; border-color: #10b981; color: #047857; }
   .ticker-btn.loading { opacity: 0.5; pointer-events: none; }
-  
-  .custom-ticker-input { display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #2a2a3a; }
-  .custom-ticker-input input { flex: 1; background: #0a0a0f; border: 1px solid #2a2a3a; border-radius: 6px; padding: 8px 12px; font-size: 13px; font-family: monospace; color: #f0f0f5; text-transform: uppercase; }
-  .custom-ticker-input input::placeholder { color: #606070; text-transform: none; }
-  .custom-ticker-input input:focus { outline: none; border-color: #22c55e; }
-  .custom-ticker-input button { padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; border: none; cursor: pointer; display: flex; align-items: center; gap: 4px; background: #22c55e; color: #000; }
-  .custom-ticker-input button:hover { background: #16a34a; }
-  
-  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; border: none; cursor: pointer; transition: all 0.2s; }
-  .btn-primary { background: linear-gradient(135deg, #22c55e, #16a34a); color: #fff; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3); }
-  .btn-primary:hover:not(:disabled) { transform: translateY(-1px); }
-  .btn-danger { background: linear-gradient(135deg, #ef4444, #dc2626); color: #fff; }
-  .btn:disabled { background: #1a1a24; color: #606070; cursor: not-allowed; box-shadow: none; }
-  
-  .loading { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 48px; color: #a0a0b0; }
+
+  .custom-ticker-input { display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e2e8f0; }
+  .custom-ticker-input input { flex: 1; background: #f8f9fb; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; font-size: 13px; font-family: 'JetBrains Mono', monospace; color: #1a1d26; text-transform: uppercase; }
+  .custom-ticker-input input::placeholder { color: #94a3b8; text-transform: none; }
+  .custom-ticker-input input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+  .custom-ticker-input button { padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; border: none; cursor: pointer; display: flex; align-items: center; gap: 4px; background: #10b981; color: #fff; }
+  .custom-ticker-input button:hover { background: #059669; }
+
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; border: none; cursor: pointer; transition: all 0.15s; }
+  .btn-primary { background: #2563eb; color: #fff; box-shadow: 0 2px 8px rgba(37,99,235,0.25); }
+  .btn-primary:hover:not(:disabled) { background: #1d4ed8; transform: translateY(-1px); }
+  .btn-danger { background: #ef4444; color: #fff; }
+  .btn-danger:hover:not(:disabled) { background: #dc2626; }
+  .btn:disabled { background: #f1f5f9; color: #94a3b8; cursor: not-allowed; box-shadow: none; }
+
+  .loading { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 48px; color: #64748b; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .spin { animation: spin 1s linear infinite; }
-  
-  .summary-box { background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1)); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
-  .summary-title { font-size: 13px; font-weight: 600; color: #3b82f6; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
-  .summary-text { font-size: 13px; color: #f0f0f5; line-height: 1.6; }
-  .summary-text .highlight { color: #f59e0b; font-weight: 600; }
-  .summary-text .bullish { color: #22c55e; font-weight: 600; }
-  .summary-text .bearish { color: #ef4444; font-weight: 600; }
-  
+
+  .summary-box { background: #f0f7ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .summary-title { font-size: 13px; font-weight: 600; color: #2563eb; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .summary-text { font-size: 13px; color: #334155; line-height: 1.6; }
+  .summary-text .highlight { color: #b45309; font-weight: 600; }
+  .summary-text .bullish { color: #047857; font-weight: 600; }
+  .summary-text .bearish { color: #dc2626; font-weight: 600; }
+
   .chart-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; }
-  .chart-title { font-size: 16px; font-weight: 600; }
-  .chart-title .ticker { color: #3b82f6; font-family: monospace; }
-  .exp-legend { display: flex; gap: 12px; margin-top: 8px; font-size: 11px; flex-wrap: wrap; }
+  .chart-title { font-size: 16px; font-weight: 600; color: #1a1d26; }
+  .chart-title .ticker { color: #2563eb; font-family: 'JetBrains Mono', monospace; }
+  .exp-legend { display: flex; gap: 12px; margin-top: 8px; font-size: 11px; flex-wrap: wrap; color: #64748b; }
   .exp-legend-item { display: flex; align-items: center; gap: 4px; }
   .exp-dot { width: 8px; height: 8px; border-radius: 50%; }
   .exp-dot.monthly { background: #f59e0b; }
-  .exp-dot.weekly { background: #606070; }
-  
-  .chart-explanation { background: #0a0a0f; border: 1px solid #2a2a3a; border-radius: 8px; padding: 12px; margin-top: 12px; font-size: 12px; color: #a0a0b0; }
-  .chart-explanation strong { color: #f0f0f5; }
-  .chart-explanation .bullish { color: #22c55e; }
-  .chart-explanation .bearish { color: #ef4444; }
-  
+  .exp-dot.weekly { background: #94a3b8; }
+
+  .chart-explanation { background: #f8f9fb; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-top: 12px; font-size: 12px; color: #64748b; }
+  .chart-explanation strong { color: #1a1d26; }
+  .chart-explanation .bullish { color: #047857; }
+  .chart-explanation .bearish { color: #dc2626; }
+
   .metrics-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
   @media (min-width: 768px) { .metrics-grid { grid-template-columns: repeat(4, 1fr); } }
   @media (min-width: 1024px) { .metrics-grid { grid-template-columns: repeat(7, 1fr); } }
-  .metric-card { background: #0a0a0f; border: 1px solid #2a2a3a; border-radius: 10px; padding: 12px; text-align: center; }
-  .metric-card.highlight { border-color: #3b82f6; background: rgba(59, 130, 246, 0.05); }
+  .metric-card { background: #f8f9fb; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; text-align: center; }
+  .metric-card.highlight { border-color: #2563eb; background: #f0f7ff; }
   .metric-card.wide { grid-column: span 2; }
-  .metric-value { font-size: 20px; font-family: monospace; font-weight: 700; margin-bottom: 4px; }
-  .metric-label { font-size: 10px; color: #606070; text-transform: uppercase; letter-spacing: 0.05em; }
-  .metric-sub { font-size: 9px; color: #808090; margin-top: 4px; }
-  .metric-explanation { font-size: 10px; color: #a0a0b0; margin-top: 8px; padding-top: 8px; border-top: 1px solid #2a2a3a; text-align: left; line-height: 1.4; }
-  
+  .metric-value { font-size: 20px; font-family: 'JetBrains Mono', monospace; font-weight: 700; margin-bottom: 4px; color: #1a1d26; }
+  .metric-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+  .metric-sub { font-size: 9px; color: #94a3b8; margin-top: 4px; }
+  .metric-explanation { font-size: 10px; color: #64748b; margin-top: 8px; padding-top: 8px; border-top: 1px solid #e2e8f0; text-align: left; line-height: 1.4; }
+
   .pc-gauge-container { display: flex; flex-direction: column; align-items: center; padding: 8px; }
   .pc-gauge-svg { width: 100%; max-width: 120px; }
-  .pc-gauge-value { font-size: 18px; font-family: monospace; font-weight: 700; margin-top: 4px; }
-  .pc-gauge-label { font-size: 10px; color: #606070; text-transform: uppercase; }
-  
+  .pc-gauge-value { font-size: 18px; font-family: 'JetBrains Mono', monospace; font-weight: 700; margin-top: 4px; }
+  .pc-gauge-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; }
+
   .insights-header { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
-  .insights-header h3 { font-size: 15px; font-weight: 600; }
+  .insights-header h3 { font-size: 15px; font-weight: 600; color: #1a1d26; }
   .assessment { margin-left: auto; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; }
-  .assessment.fear { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
-  .assessment.bullish { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
-  .assessment.neutral { background: #1a1a24; color: #a0a0b0; }
+  .assessment.fear { background: #fef2f2; color: #dc2626; }
+  .assessment.bullish { background: #ecfdf5; color: #047857; }
+  .assessment.neutral { background: #f1f5f9; color: #64748b; }
   .insights-list { display: flex; flex-direction: column; gap: 10px; }
   .insight { display: flex; gap: 12px; padding: 12px; border-radius: 10px; border: 1px solid; }
-  .insight.warning { background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.2); }
-  .insight.info { background: rgba(59, 130, 246, 0.08); border-color: rgba(59, 130, 246, 0.2); }
-  .insight.success { background: rgba(34, 197, 94, 0.08); border-color: rgba(34, 197, 94, 0.2); }
-  .insight.neutral { background: #1a1a24; border-color: #2a2a3a; }
-  .insight-text { font-size: 13px; color: #f0f0f5; line-height: 1.5; }
-  
-  .stats-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid #2a2a3a; }
-  .stats-title { font-size: 11px; color: #606070; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
-  
+  .insight.warning { background: #fef2f2; border-color: #fecaca; }
+  .insight.info { background: #f0f7ff; border-color: #bfdbfe; }
+  .insight.success { background: #ecfdf5; border-color: #a7f3d0; }
+  .insight.neutral { background: #f8f9fb; border-color: #e2e8f0; }
+  .insight-text { font-size: 13px; color: #334155; line-height: 1.5; }
+
+  .stats-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e2e8f0; }
+  .stats-title { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; font-weight: 600; }
+
   .finviz-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 12px; }
-  .finviz-table td { padding: 8px 10px; border: 1px solid #2a2a3a; }
-  .finviz-table td:nth-child(odd) { background: #1a1a24; color: #808090; width: 12%; }
-  .finviz-table td:nth-child(even) { background: #0a0a0f; color: #f0f0f5; font-family: monospace; font-weight: 500; }
-  .finviz-table td.positive { color: #22c55e; }
-  .finviz-table td.negative { color: #ef4444; }
-  
-  .next-earnings { margin-top: 16px; padding: 12px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px; display: flex; align-items: center; gap: 10px; }
+  .finviz-table td { padding: 8px 10px; border: 1px solid #e2e8f0; }
+  .finviz-table td:nth-child(odd) { background: #f8f9fb; color: #64748b; width: 12%; font-weight: 500; }
+  .finviz-table td:nth-child(even) { background: #ffffff; color: #1a1d26; font-family: 'JetBrains Mono', monospace; font-weight: 500; font-size: 10px; }
+  .finviz-table td.positive { color: #047857; }
+  .finviz-table td.negative { color: #dc2626; }
+
+  .next-earnings { margin-top: 16px; padding: 12px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; display: flex; align-items: center; gap: 10px; }
   .next-earnings-icon { font-size: 20px; }
-  .next-earnings-text { font-size: 13px; color: #f59e0b; font-weight: 600; }
-  .next-earnings-date { font-size: 13px; color: #f0f0f5; font-family: monospace; }
-  
+  .next-earnings-text { font-size: 13px; color: #b45309; font-weight: 600; }
+  .next-earnings-date { font-size: 13px; color: #1a1d26; font-family: 'JetBrains Mono', monospace; }
+
   .valuation-box { margin-top: 16px; padding: 16px; border-radius: 10px; border: 2px solid; }
-  .valuation-box.overvalued { background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.3); }
-  .valuation-box.undervalued { background: rgba(34, 197, 94, 0.08); border-color: rgba(34, 197, 94, 0.3); }
-  .valuation-box.fair { background: rgba(245, 158, 11, 0.08); border-color: rgba(245, 158, 11, 0.3); }
+  .valuation-box.overvalued { background: #fef2f2; border-color: #fecaca; }
+  .valuation-box.undervalued { background: #ecfdf5; border-color: #a7f3d0; }
+  .valuation-box.fair { background: #fffbeb; border-color: #fde68a; }
   .valuation-title { font-size: 12px; font-weight: 600; margin-bottom: 8px; }
-  .valuation-text { font-size: 13px; color: #a0a0b0; line-height: 1.5; }
-  
-  .table-toggle { width: 100%; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; background: transparent; border: none; color: #f0f0f5; font-size: 15px; font-weight: 500; cursor: pointer; border-radius: 8px; }
-  .table-toggle:hover { background: #1a1a24; }
+  .valuation-text { font-size: 13px; color: #64748b; line-height: 1.5; }
+
+  .table-toggle { width: 100%; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; background: transparent; border: none; color: #1a1d26; font-size: 15px; font-weight: 500; cursor: pointer; border-radius: 8px; }
+  .table-toggle:hover { background: #f1f5f9; }
   .table-wrap { overflow-x: auto; }
   table { width: 100%; font-size: 11px; border-collapse: collapse; }
-  thead { background: #1a1a24; color: #a0a0b0; }
-  th { padding: 10px 6px; text-align: left; font-weight: 500; white-space: nowrap; font-size: 10px; }
+  thead { background: #f1f5f9; color: #64748b; }
+  th { padding: 10px 6px; text-align: left; font-weight: 600; white-space: nowrap; font-size: 10px; }
   th.right { text-align: right; }
   th.center { text-align: center; }
-  th.put-header { background: rgba(239, 68, 68, 0.1); border-bottom: 3px solid #ef4444; }
-  th.call-header { background: rgba(34, 197, 94, 0.1); border-bottom: 3px solid #22c55e; }
-  th.border-left { border-left: 3px solid #404050; }
+  th.put-header { background: #fef2f2; border-bottom: 3px solid #ef4444; }
+  th.call-header { background: #ecfdf5; border-bottom: 3px solid #10b981; }
+  th.border-left { border-left: 3px solid #cbd5e1; }
   th.sortable { cursor: pointer; user-select: none; }
-  th.sortable:hover { background: #2a2a3a; }
-  tbody { font-family: monospace; font-size: 10px; }
-  tbody tr { border-top: 1px solid #2a2a3a; }
-  tbody tr:nth-child(odd) { background: #0a0a0f; }
-  tbody tr:nth-child(even) { background: #12121a; }
-  tbody tr.monthly { background: rgba(245, 158, 11, 0.15) !important; border-left: 4px solid #f59e0b; }
+  th.sortable:hover { background: #e2e8f0; }
+  tbody { font-family: 'JetBrains Mono', monospace; font-size: 10px; }
+  tbody tr { border-top: 1px solid #e2e8f0; }
+  tbody tr:nth-child(odd) { background: #ffffff; }
+  tbody tr:nth-child(even) { background: #f8f9fb; }
+  tbody tr.monthly { background: #fffbeb !important; border-left: 4px solid #f59e0b; }
   td { padding: 6px; }
   td.right { text-align: right; }
   td.center { text-align: center; }
-  td.border-left { border-left: 3px solid #404050; }
+  td.border-left { border-left: 3px solid #cbd5e1; }
   .delta-badge { padding: 2px 5px; border-radius: 4px; font-size: 9px; font-weight: 600; }
-  .pct-badge { padding: 2px 5px; border-radius: 4px; font-size: 9px; font-weight: 600; background: #2a2a3a; }
+  .pct-badge { padding: 2px 5px; border-radius: 4px; font-size: 9px; font-weight: 600; background: #f1f5f9; }
   .exp-badge { font-size: 8px; padding: 2px 5px; border-radius: 4px; margin-left: 4px; }
-  .exp-badge.monthly { background: rgba(245, 158, 11, 0.3); color: #f59e0b; font-weight: 700; }
-  .exp-badge.weekly { background: rgba(96, 96, 112, 0.2); color: #606070; }
-  .pct-diff { font-size: 8px; color: #606070; }
-  .pct-diff.negative { color: #ef4444; }
-  .pct-diff.positive { color: #22c55e; }
-  
+  .exp-badge.monthly { background: #fef3c7; color: #b45309; font-weight: 700; }
+  .exp-badge.weekly { background: #f1f5f9; color: #94a3b8; }
+  .pct-diff { font-size: 8px; color: #94a3b8; }
+  .pct-diff.negative { color: #dc2626; }
+  .pct-diff.positive { color: #047857; }
+
   .delta-display { font-size: 12px; font-weight: 700; }
-  .strike-display { font-size: 10px; color: #a0a0b0; }
-  
-  .formula-box { background: #0a0a0f; border: 1px solid #2a2a3a; border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; font-size: 10px; color: #a0a0b0; }
-  .formula-box code { background: #1a1a24; padding: 2px 6px; border-radius: 4px; color: #f59e0b; font-family: monospace; }
-  
-  .monthly-summary-box { background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.05)); border: 2px solid rgba(245, 158, 11, 0.4); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
-  .monthly-summary-title { font-size: 13px; font-weight: 700; color: #f59e0b; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
-  .monthly-summary-text { font-size: 12px; color: #f0f0f5; line-height: 1.6; }
-  
-  .bell-curve-container { margin-top: 20px; padding: 16px; background: #0a0a0f; border: 1px solid #2a2a3a; border-radius: 10px; }
-  .bell-curve-title { font-size: 13px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-  .bell-curve-legend { display: flex; gap: 16px; margin-top: 8px; font-size: 11px; }
+  .strike-display { font-size: 10px; color: #64748b; }
+
+  .formula-box { background: #f8f9fb; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; font-size: 10px; color: #64748b; }
+  .formula-box code { background: #fffbeb; padding: 2px 6px; border-radius: 4px; color: #b45309; font-family: 'JetBrains Mono', monospace; }
+
+  .monthly-summary-box { background: #fffbeb; border: 2px solid #fde68a; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .monthly-summary-title { font-size: 13px; font-weight: 700; color: #b45309; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .monthly-summary-text { font-size: 12px; color: #334155; line-height: 1.6; }
+
+  .bell-curve-container { margin-top: 20px; padding: 16px; background: #f8f9fb; border: 1px solid #e2e8f0; border-radius: 10px; }
+  .bell-curve-title { font-size: 13px; font-weight: 600; color: #1a1d26; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .bell-curve-legend { display: flex; gap: 16px; margin-top: 8px; font-size: 11px; color: #64748b; }
   .bell-curve-legend-item { display: flex; align-items: center; gap: 6px; }
   .legend-line { width: 20px; height: 2px; }
-  
+
   .monthly-metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
-  .monthly-metric { background: #0a0a0f; border: 1px solid #2a2a3a; border-radius: 8px; padding: 12px; text-align: center; }
-  .monthly-metric-label { font-size: 11px; color: #f59e0b; font-weight: 600; margin-bottom: 8px; }
-  .monthly-metric-value { font-size: 18px; font-family: monospace; font-weight: 700; }
-  
-  footer { border-top: 1px solid #2a2a3a; margin-top: 48px; padding: 24px 0; text-align: center; }
-  footer p { font-size: 12px; color: #606070; margin: 4px 0; }
-  
-  .price-chart-container { margin-top: 16px; padding-top: 16px; border-top: 1px solid #2a2a3a; }
-  
-  .volume-legend { display: flex; gap: 16px; margin-top: 8px; font-size: 11px; }
+  .monthly-metric { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; text-align: center; }
+  .monthly-metric-label { font-size: 11px; color: #b45309; font-weight: 600; margin-bottom: 8px; }
+  .monthly-metric-value { font-size: 18px; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #1a1d26; }
+
+  footer { border-top: 1px solid #e2e8f0; margin-top: 48px; padding: 24px 0; text-align: center; background: #ffffff; }
+  footer p { font-size: 12px; color: #94a3b8; margin: 4px 0; }
+
+  .price-chart-container { margin-top: 16px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
+
+  .volume-legend { display: flex; gap: 16px; margin-top: 8px; font-size: 11px; color: #64748b; }
   .volume-legend-item { display: flex; align-items: center; gap: 4px; }
   .volume-box { width: 12px; height: 12px; border-radius: 2px; }
   .volume-box.put { background: rgba(239, 68, 68, 0.6); }
-  .volume-box.call { background: rgba(34, 197, 94, 0.6); }
-  
-  /* Scanner Styles */
-  .scanner-controls { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; padding: 16px; background: #12121a; border: 1px solid #2a2a3a; border-radius: 10px; }
-  .scanner-control-group { display: flex; align-items: center; gap: 8px; }
-  .scanner-control-group label { font-size: 12px; color: #a0a0b0; }
-  .scanner-control-group input { background: #0a0a0f; border: 1px solid #2a2a3a; border-radius: 6px; padding: 8px 12px; font-size: 13px; color: #f0f0f5; outline: none; width: 60px; }
-  .scanner-control-group input:focus { border-color: #3b82f6; }
-  
-  .scanner-status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #a0a0b0; }
-  .status-dot { width: 8px; height: 8px; border-radius: 50%; }
-  .status-dot.running { background: #22c55e; animation: pulse 1s infinite; }
-  .status-dot.stopped { background: #606070; }
-  .status-dot.complete { background: #3b82f6; }
-  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-  
-  .progress-bar { flex: 1; min-width: 200px; }
-  .progress-bar-bg { height: 8px; background: #2a2a3a; border-radius: 4px; overflow: hidden; }
-  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #8b5cf6); border-radius: 4px; transition: width 0.3s; }
-  .progress-text { font-size: 11px; color: #606070; margin-top: 4px; }
-  
-  .scanner-table-container { max-height: 600px; overflow-y: auto; }
-  .scanner-table .price-cell { color: #f0f0f5; }
-  .scanner-table .skew-cell { font-weight: 600; }
-  .scanner-table .skew-cell.positive { color: #ef4444; }
-  .scanner-table .skew-cell.negative { color: #22c55e; }
-  .scanner-table .skew-cell.neutral { color: #606070; }
-  .scanner-empty { text-align: center; padding: 60px 20px; color: #606070; }
+  .volume-box.call { background: rgba(16, 185, 129, 0.6); }
 
-  .backtest-controls { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; padding: 16px; background: #12121a; border: 1px solid #2a2a3a; border-radius: 10px; }
+  /* Scanner Styles */
+  .scanner-controls { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; padding: 16px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .scanner-control-group { display: flex; align-items: center; gap: 8px; }
+  .scanner-control-group label { font-size: 12px; color: #64748b; font-weight: 500; }
+  .scanner-control-group input { background: #f8f9fb; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; font-size: 13px; color: #1a1d26; outline: none; width: 60px; }
+  .scanner-control-group input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+
+  .scanner-status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #64748b; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .status-dot.running { background: #10b981; animation: pulse 1s infinite; }
+  .status-dot.stopped { background: #94a3b8; }
+  .status-dot.complete { background: #2563eb; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+  .progress-bar { flex: 1; min-width: 200px; }
+  .progress-bar-bg { height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, #2563eb, #7c3aed); border-radius: 4px; transition: width 0.3s; }
+  .progress-text { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+
+  .scanner-table-container { max-height: 600px; overflow-y: auto; }
+  .scanner-table .price-cell { color: #1a1d26; }
+  .scanner-table .skew-cell { font-weight: 600; }
+  .scanner-table .skew-cell.positive { color: #dc2626; }
+  .scanner-table .skew-cell.negative { color: #047857; }
+  .scanner-table .skew-cell.neutral { color: #94a3b8; }
+  .scanner-empty { text-align: center; padding: 60px 20px; color: #94a3b8; }
+
+  .backtest-controls { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; padding: 16px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
   .backtest-control-group { display: flex; align-items: center; gap: 8px; }
-  .backtest-control-group label { font-size: 12px; color: #a0a0b0; white-space: nowrap; }
-  .backtest-control-group input, .backtest-control-group select { background: #0a0a0f; border: 1px solid #2a2a3a; border-radius: 6px; padding: 8px 12px; font-size: 13px; color: #f0f0f5; outline: none; }
-  .backtest-control-group input:focus, .backtest-control-group select:focus { border-color: #3b82f6; }
+  .backtest-control-group label { font-size: 12px; color: #64748b; white-space: nowrap; font-weight: 500; }
+  .backtest-control-group input, .backtest-control-group select { background: #f8f9fb; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; font-size: 13px; color: #1a1d26; outline: none; }
+  .backtest-control-group input:focus, .backtest-control-group select:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
   .backtest-control-group select { cursor: pointer; }
 
   .backtest-results { margin-top: 20px; }
   .backtest-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
-  .backtest-stat { background: #0a0a0f; border: 1px solid #2a2a3a; border-radius: 10px; padding: 16px; text-align: center; }
-  .backtest-stat .value { font-size: 22px; font-family: monospace; font-weight: 700; margin-bottom: 4px; }
-  .backtest-stat .label { font-size: 10px; color: #606070; text-transform: uppercase; letter-spacing: 0.05em; }
-  .backtest-stat.profit .value { color: #22c55e; }
-  .backtest-stat.loss .value { color: #ef4444; }
-  .backtest-stat.neutral .value { color: #a0a0b0; }
+  .backtest-stat { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .backtest-stat .value { font-size: 22px; font-family: 'JetBrains Mono', monospace; font-weight: 700; margin-bottom: 4px; }
+  .backtest-stat .label { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+  .backtest-stat.profit .value { color: #047857; }
+  .backtest-stat.loss .value { color: #dc2626; }
+  .backtest-stat.neutral .value { color: #64748b; }
 
-  .backtest-log { background: #0a0a0f; border: 1px solid #2a2a3a; border-radius: 10px; padding: 16px; margin-top: 16px; max-height: 300px; overflow-y: auto; }
-  .backtest-log-entry { font-size: 12px; font-family: monospace; color: #a0a0b0; padding: 4px 0; border-bottom: 1px solid #1a1a24; }
-  .backtest-log-entry.success { color: #22c55e; }
-  .backtest-log-entry.error { color: #ef4444; }
-  .backtest-log-entry.info { color: #3b82f6; }
+  .backtest-log { background: #f8f9fb; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-top: 16px; max-height: 300px; overflow-y: auto; }
+  .backtest-log-entry { font-size: 12px; font-family: 'JetBrains Mono', monospace; color: #64748b; padding: 4px 0; border-bottom: 1px solid #e2e8f0; }
+  .backtest-log-entry.success { color: #047857; }
+  .backtest-log-entry.error { color: #dc2626; }
+  .backtest-log-entry.info { color: #2563eb; }
 `
 
 // ============================================================================
@@ -1292,7 +1294,7 @@ function analyzeAndSuggestTrades(chartData, ticker, stockPrice, priceHistory, fu
 function DatePicker({ startDate, endDate, onStartChange, onEndChange }) {
   return (
     <div className="date-picker">
-      <Calendar size={16} style={{ color: '#606070' }} />
+      <Calendar size={16} style={{ color: '#94a3b8' }} />
       <input type="date" value={startDate} onChange={e => onStartChange(e.target.value)} />
       <span>→</span>
       <input type="date" value={endDate} onChange={e => onEndChange(e.target.value)} />
@@ -1307,7 +1309,7 @@ function TickerSelector({ tickers, customTickers, selected, onSelect, onAddCusto
   
   return (
     <div className="card">
-      <div className="card-title" style={{ marginBottom: 12 }}><BarChart3 size={16} style={{ color: '#3b82f6' }} />Select Ticker (Click to Load)</div>
+      <div className="card-title" style={{ marginBottom: 12 }}><BarChart3 size={16} style={{ color: '#2563eb' }} />Select Ticker (Click to Load)</div>
       {customTickers.length > 0 && (
         <div className="ticker-section">
           <div className="ticker-section-title">Custom</div>
@@ -1371,7 +1373,7 @@ function PCRatioGauge({ pcRatio }) {
             <path
               d="M 10 50 A 40 40 0 0 1 90 50"
               fill="none"
-              stroke="#2a2a3a"
+              stroke="#e2e8f0"
               strokeWidth="8"
               strokeLinecap="round"
             />
@@ -1390,15 +1392,15 @@ function PCRatioGauge({ pcRatio }) {
               y1="50"
               x2={50 + 30 * Math.cos((180 - angle) * Math.PI / 180)}
               y2={50 - 30 * Math.sin((180 - angle) * Math.PI / 180)}
-              stroke="#f0f0f5"
+              stroke="#334155"
               strokeWidth="2"
               strokeLinecap="round"
             />
-            <circle cx="50" cy="50" r="4" fill="#f0f0f5" />
+            <circle cx="50" cy="50" r="4" fill="#334155" />
             {/* Labels */}
-            <text x="5" y="58" fontSize="6" fill="#22c55e">0.5</text>
-            <text x="46" y="12" fontSize="6" fill="#a0a0b0">1.0</text>
-            <text x="85" y="58" fontSize="6" fill="#ef4444">2.0</text>
+            <text x="5" y="58" fontSize="6" fill="#047857">0.5</text>
+            <text x="46" y="12" fontSize="6" fill="#64748b">1.0</text>
+            <text x="85" y="58" fontSize="6" fill="#dc2626">2.0</text>
           </svg>
           <div className="pc-gauge-value" style={{ color }}>{pcRatio.ratio}</div>
           <div className="pc-gauge-label">P/C Ratio</div>
@@ -1408,13 +1410,13 @@ function PCRatioGauge({ pcRatio }) {
       {/* Total Contracts Section - beside P/C Ratio */}
       <div className="metric-card">
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 11, color: '#606070', marginBottom: 8 }}>Total Contracts (60 days)</div>
+          <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8 }}>Total Contracts (60 days)</div>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 16 }}>
             <div>
               <div style={{ fontSize: 16, fontWeight: 700, color: '#ef4444' }}>{formatNumber(totalPutContracts)}</div>
               <div style={{ fontSize: 10, color: '#ef4444' }}>Puts</div>
             </div>
-            <div style={{ color: '#606070', fontSize: 16 }}>/</div>
+            <div style={{ color: '#94a3b8', fontSize: 16 }}>/</div>
             <div>
               <div style={{ fontSize: 16, fontWeight: 700, color: '#22c55e' }}>{formatNumber(totalCallContracts)}</div>
               <div style={{ fontSize: 10, color: '#22c55e' }}>Calls</div>
@@ -1452,18 +1454,18 @@ function BellCurveChart({ chartData, stockPrice, ticker }) {
     <div className="bell-curve-container">
       <div className="bell-curve-title" style={{ justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Activity size={14} style={{ color: '#8b5cf6' }} />
+          <Activity size={14} style={{ color: '#7c3aed' }} />
           Skew Bell Curve — {selectedMonthly.exp} (Monthly)
         </div>
         <select 
           value={selectedExp} 
           onChange={(e) => setSelectedExp(Number(e.target.value))}
           style={{ 
-            background: '#1a1a24', 
+            background: '#f1f5f9',
             border: '1px solid #3b82f6', 
             borderRadius: 6, 
             padding: '6px 12px', 
-            color: '#f0f0f5', 
+            color: '#1a1d26', 
             fontSize: 12,
             cursor: 'pointer'
           }}
@@ -1473,32 +1475,32 @@ function BellCurveChart({ chartData, stockPrice, ticker }) {
           ))}
         </select>
       </div>
-      <div style={{ fontSize: 11, color: '#606070', marginBottom: 12 }}>Delta on X-axis • Premium on Y-axis • Shows put/call skew distribution</div>
+      <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 12 }}>Delta on X-axis • Premium on Y-axis • Shows put/call skew distribution</div>
       <div style={{ height: 300 }}>
         <ResponsiveContainer width="100%" height="100%">
           <ScatterChart margin={{ top: 20, right: 30, left: 10, bottom: 30 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#2a2a3a" />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
             <XAxis 
               dataKey="delta" 
               type="number" 
               domain={[-0.5, 0.5]} 
-              stroke="#606070" 
+              stroke="#94a3b8"
               tick={{ fontSize: 10 }}
               tickFormatter={v => v.toFixed(2)}
-              label={{ value: 'Delta', position: 'bottom', offset: 5, style: { fill: '#606070', fontSize: 10 } }}
+              label={{ value: 'Delta', position: 'bottom', offset: 5, style: { fill: '#94a3b8', fontSize: 10 } }}
             />
             <YAxis 
               dataKey="premium"
-              stroke="#606070" 
+              stroke="#94a3b8"
               tick={{ fontSize: 10 }}
               domain={[0, 'auto']}
-              label={{ value: 'Premium ($)', angle: -90, position: 'insideLeft', style: { fill: '#606070', fontSize: 10 } }}
+              label={{ value: 'Premium ($)', angle: -90, position: 'insideLeft', style: { fill: '#94a3b8', fontSize: 10 } }}
             />
             <Tooltip content={({ active, payload }) => {
               if (!active || !payload?.length) return null
               const d = payload[0]?.payload
               return (
-                <div style={{ background: '#12121a', border: '1px solid #2a2a3a', borderRadius: 8, padding: 10 }}>
+                <div style={{ background: '#f8f9fb', border: '1px solid #e2e8f0', borderRadius: 8, padding: 10 }}>
                   <div style={{ fontWeight: 600, color: d.type === 'put' ? '#ef4444' : '#22c55e' }}>{d.type?.toUpperCase()}</div>
                   <div style={{ fontSize: 11 }}>Delta: {d.delta?.toFixed(2)}</div>
                   <div style={{ fontSize: 11 }}>Strike: ${d.strike}</div>
@@ -1577,11 +1579,11 @@ function VolatilitySmileChart({ chartData, stockPrice, ticker }) {
           value={selectedExp} 
           onChange={(e) => setSelectedExp(Number(e.target.value))}
           style={{ 
-            background: '#1a1a24', 
+            background: '#f1f5f9',
             border: '1px solid #06b6d4', 
             borderRadius: 6, 
             padding: '6px 12px', 
-            color: '#f0f0f5', 
+            color: '#1a1d26', 
             fontSize: 12,
             cursor: 'pointer'
           }}
@@ -1591,33 +1593,33 @@ function VolatilitySmileChart({ chartData, stockPrice, ticker }) {
           ))}
         </select>
       </div>
-      <div style={{ fontSize: 11, color: '#606070', marginBottom: 12 }}>Strike Price on X-axis • Implied Volatility on Y-axis • Classic "smile" shape shows higher IV for OTM options</div>
+      <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 12 }}>Strike Price on X-axis • Implied Volatility on Y-axis • Classic "smile" shape shows higher IV for OTM options</div>
       <div style={{ height: 300 }}>
         <ResponsiveContainer width="100%" height="100%">
           <ScatterChart margin={{ top: 20, right: 30, left: 10, bottom: 30 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#2a2a3a" />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
             <XAxis 
               dataKey="strike" 
               type="number" 
-              stroke="#606070" 
+              stroke="#94a3b8"
               tick={{ fontSize: 10 }}
               tickFormatter={v => `$${v}`}
               domain={['auto', 'auto']}
-              label={{ value: 'Strike Price', position: 'bottom', offset: 5, style: { fill: '#606070', fontSize: 10 } }}
+              label={{ value: 'Strike Price', position: 'bottom', offset: 5, style: { fill: '#94a3b8', fontSize: 10 } }}
             />
             <YAxis 
               dataKey="iv"
-              stroke="#606070" 
+              stroke="#94a3b8"
               tick={{ fontSize: 10 }}
               domain={['auto', 'auto']}
               tickFormatter={v => `${v.toFixed(0)}%`}
-              label={{ value: 'Implied Volatility (%)', angle: -90, position: 'insideLeft', style: { fill: '#606070', fontSize: 10 } }}
+              label={{ value: 'Implied Volatility (%)', angle: -90, position: 'insideLeft', style: { fill: '#94a3b8', fontSize: 10 } }}
             />
             <Tooltip content={({ active, payload }) => {
               if (!active || !payload?.length) return null
               const d = payload[0]?.payload
               return (
-                <div style={{ background: '#12121a', border: '1px solid #2a2a3a', borderRadius: 8, padding: 10 }}>
+                <div style={{ background: '#f8f9fb', border: '1px solid #e2e8f0', borderRadius: 8, padding: 10 }}>
                   <div style={{ fontWeight: 600, color: d.type === 'put' ? '#ef4444' : '#22c55e' }}>{d.type?.toUpperCase()}</div>
                   <div style={{ fontSize: 11 }}>Strike: ${d.strike}</div>
                   <div style={{ fontSize: 11 }}>IV: {d.iv?.toFixed(1)}%</div>
@@ -1680,7 +1682,7 @@ function MonthlyBreakdownMetrics({ monthlyMetrics }) {
         {monthlyMetrics.map((m, i) => (
           <div key={i} className="monthly-metric">
             <div className="monthly-metric-label">{m.month} Exp Move</div>
-            <div className="monthly-metric-value" style={{ color: '#8b5cf6' }}>
+            <div className="monthly-metric-value" style={{ color: '#7c3aed' }}>
               {m.expectedMove ? `±$${m.expectedMove.dollars}` : '-'}
             </div>
           </div>
@@ -1712,7 +1714,7 @@ function KeyMetrics({ analysis, stockPrice, tastyMetrics }) {
         
         <div className="metric-card">
           <div className="metric-value">
-            {stats?.termDirection === 'up' ? <span style={{ color: '#ef4444' }}>↓</span> : stats?.termDirection === 'down' ? <span style={{ color: '#22c55e' }}>↑</span> : <span style={{ color: '#606070' }}>→</span>}
+            {stats?.termDirection === 'up' ? <span style={{ color: '#ef4444' }}>↓</span> : stats?.termDirection === 'down' ? <span style={{ color: '#22c55e' }}>↑</span> : <span style={{ color: '#94a3b8' }}>→</span>}
           </div>
           <div className="metric-label">Term Struct</div>
           <div className="metric-sub">{stats?.termDirection === 'up' ? 'Backwardation' : stats?.termDirection === 'down' ? 'Contango' : 'Flat'}</div>
@@ -1720,7 +1722,7 @@ function KeyMetrics({ analysis, stockPrice, tastyMetrics }) {
             <strong>Term Structure</strong> measures how option skew changes across expirations.<br/>
             <span style={{ color: '#ef4444' }}>Backwardation (↓)</span>: Near-term puts are more expensive than far-term puts. This signals <strong>immediate fear/hedging</strong> - traders are paying up for short-term protection.<br/>
             <span style={{ color: '#22c55e' }}>Contango (↑)</span>: Far-term puts are more expensive than near-term puts. This is <strong>normal/bullish</strong> - no immediate panic, hedging is gradual.<br/>
-            <span style={{ color: '#606070' }}>Flat (→)</span>: Skew is consistent across expirations - neutral sentiment.
+            <span style={{ color: '#94a3b8' }}>Flat (→)</span>: Skew is consistent across expirations - neutral sentiment.
           </div>
         </div>
         
@@ -1733,7 +1735,7 @@ function KeyMetrics({ analysis, stockPrice, tastyMetrics }) {
         </div>
         
         <div className="metric-card">
-          <div className="metric-value" style={{ color: '#8b5cf6' }}>±${summary?.expectedMove?.dollars || '-'}</div>
+          <div className="metric-value" style={{ color: '#7c3aed' }}>±${summary?.expectedMove?.dollars || '-'}</div>
           <div className="metric-label">Exp Move</div>
           <div className="metric-sub">{summary?.expectedMove?.percent ? `±${summary.expectedMove.percent}%` : '-'}</div>
         </div>
@@ -1744,19 +1746,19 @@ function KeyMetrics({ analysis, stockPrice, tastyMetrics }) {
       
       {/* TastyTrade Metrics Section */}
       {!tastyMetrics && tastyTradeClient.authError && (
-        <div style={{ marginTop: 16, padding: '10px 14px', background: 'rgba(225, 29, 72, 0.1)', border: '1px solid rgba(225, 29, 72, 0.3)', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#f87171' }}>
+        <div style={{ marginTop: 16, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#dc2626' }}>
           <AlertTriangle size={14} />
           TastyTrade session expired — IV Rank/Percentile unavailable
         </div>
       )}
       {tastyMetrics && (
         <div style={{ marginTop: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: '#e11d48', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ background: '#e11d48', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700 }}>TastyTrade</span>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: '#be123c', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ background: '#be123c', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700 }}>TastyTrade</span>
             IV Metrics
           </div>
           <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-            <div className="metric-card" style={{ borderColor: '#e11d48', background: 'rgba(225, 29, 72, 0.05)' }}>
+            <div className="metric-card" style={{ borderColor: '#fda4af', background: '#fff1f2' }}>
               <div className="metric-value" style={{ color: tastyMetrics.ivRank > 50 ? '#ef4444' : tastyMetrics.ivRank < 30 ? '#22c55e' : '#f59e0b' }}>
                 {tastyMetrics.ivRank !== null ? `${Math.round(tastyMetrics.ivRank)}%` : '-'}
               </div>
@@ -1764,7 +1766,7 @@ function KeyMetrics({ analysis, stockPrice, tastyMetrics }) {
               <div className="metric-sub">TastyTrade</div>
             </div>
             
-            <div className="metric-card" style={{ borderColor: '#e11d48', background: 'rgba(225, 29, 72, 0.05)' }}>
+            <div className="metric-card" style={{ borderColor: '#fda4af', background: '#fff1f2' }}>
               <div className="metric-value" style={{ color: (tastyMetrics.ivPercentile * 100) > 50 ? '#ef4444' : (tastyMetrics.ivPercentile * 100) < 30 ? '#22c55e' : '#f59e0b' }}>
                 {tastyMetrics.ivPercentile !== null ? `${Math.round(tastyMetrics.ivPercentile * 100)}%` : '-'}
               </div>
@@ -1772,7 +1774,7 @@ function KeyMetrics({ analysis, stockPrice, tastyMetrics }) {
               <div className="metric-sub">TastyTrade</div>
             </div>
             
-            <div className="metric-card" style={{ borderColor: '#e11d48', background: 'rgba(225, 29, 72, 0.05)' }}>
+            <div className="metric-card" style={{ borderColor: '#fda4af', background: '#fff1f2' }}>
               <div className="metric-value" style={{ color: tastyMetrics.iv5DayChange > 0 ? '#ef4444' : tastyMetrics.iv5DayChange < 0 ? '#22c55e' : '#a0a0b0' }}>
                 {tastyMetrics.iv5DayChange !== null ? `${tastyMetrics.iv5DayChange > 0 ? '+' : ''}${(tastyMetrics.iv5DayChange * 100).toFixed(1)}%` : '-'}
               </div>
@@ -1787,7 +1789,7 @@ function KeyMetrics({ analysis, stockPrice, tastyMetrics }) {
 }
 
 function SkewChartWithVolume({ chartData, ticker }) {
-  if (!chartData?.length) return <div style={{ height: 350, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#606070' }}>No data</div>
+  if (!chartData?.length) return <div style={{ height: 350, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>No data</div>
   const maxVolume = Math.max(...chartData.map(d => Math.max(d.putVolume || 0, d.callVolume || 0)))
 
   return (
@@ -1795,18 +1797,18 @@ function SkewChartWithVolume({ chartData, ticker }) {
       <div style={{ height: 350 }}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 60 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#2a2a3a" />
-            <XAxis dataKey="expShort" stroke="#606070" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" interval={0} />
-            <YAxis yAxisId="skew" stroke="#606070" tick={{ fontSize: 11 }} label={{ value: 'Skew (%)', angle: -90, position: 'insideLeft', style: { fill: '#606070', fontSize: 11 } }} />
-            <YAxis yAxisId="volume" orientation="right" stroke="#606070" domain={[0, maxVolume * 3]} hide />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+            <XAxis dataKey="expShort" stroke="#94a3b8"tick={{ fontSize: 10 }} angle={-45} textAnchor="end" interval={0} />
+            <YAxis yAxisId="skew" stroke="#94a3b8"tick={{ fontSize: 11 }} label={{ value: 'Skew (%)', angle: -90, position: 'insideLeft', style: { fill: '#94a3b8', fontSize: 11 } }} />
+            <YAxis yAxisId="volume" orientation="right" stroke="#94a3b8"domain={[0, maxVolume * 3]} hide />
             <Tooltip content={({ active, payload, label }) => {
               if (!active || !payload?.length) return null
               const d = payload[0]?.payload
               return (
-                <div style={{ background: '#12121a', border: '1px solid #2a2a3a', borderRadius: 8, padding: 12 }}>
-                  <div style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{label} {d?.isMonthly && <span style={{ color: '#f59e0b' }}>(Monthly)</span>}</div>
-                  <div style={{ fontSize: 12, color: '#3b82f6' }}>10Δ: {d?.d10_pct?.toFixed(1)}%</div>
-                  <div style={{ fontSize: 12, color: '#8b5cf6' }}>20Δ: {d?.d20_pct?.toFixed(1)}%</div>
+                <div style={{ background: '#f8f9fb', border: '1px solid #e2e8f0', borderRadius: 8, padding: 12 }}>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{label} {d?.isMonthly && <span style={{ color: '#f59e0b' }}>(Monthly)</span>}</div>
+                  <div style={{ fontSize: 12, color: '#2563eb' }}>10Δ: {d?.d10_pct?.toFixed(1)}%</div>
+                  <div style={{ fontSize: 12, color: '#7c3aed' }}>20Δ: {d?.d20_pct?.toFixed(1)}%</div>
                   <div style={{ fontSize: 12, color: '#06b6d4' }}>30Δ: {d?.d30_pct?.toFixed(1)}%</div>
                   <div style={{ fontSize: 12, color: '#f59e0b' }}>40Δ: {d?.d40_pct?.toFixed(1)}%</div>
                   <div style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>Put Vol: {d?.putVolume?.toLocaleString()}</div>
@@ -1863,22 +1865,22 @@ function PriceChartWithEarnings({ priceHistory, ticker, earnings }) {
                 <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#2a2a3a" />
-            <XAxis dataKey="date" stroke="#606070" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" interval={Math.floor(chartData.length / 10)} />
-            <YAxis yAxisId="price" stroke="#606070" tick={{ fontSize: 10 }} domain={['auto', 'auto']} />
-            <YAxis yAxisId="volume" orientation="right" stroke="#606070" domain={[0, maxVolume * 3]} hide />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+            <XAxis dataKey="date" stroke="#94a3b8"tick={{ fontSize: 10 }} angle={-45} textAnchor="end" interval={Math.floor(chartData.length / 10)} />
+            <YAxis yAxisId="price" stroke="#94a3b8"tick={{ fontSize: 10 }} domain={['auto', 'auto']} />
+            <YAxis yAxisId="volume" orientation="right" stroke="#94a3b8"domain={[0, maxVolume * 3]} hide />
             <Tooltip content={({ active, payload, label }) => {
               if (!active || !payload?.length) return null
               const d = payload[0]?.payload
               return (
-                <div style={{ background: '#12121a', border: '1px solid #2a2a3a', borderRadius: 8, padding: 10 }}>
+                <div style={{ background: '#f8f9fb', border: '1px solid #e2e8f0', borderRadius: 8, padding: 10 }}>
                   <div style={{ fontWeight: 600 }}>{label} {d?.isEarnings && <span style={{ color: '#f59e0b' }}>📅 EARNINGS</span>}</div>
                   <div>Price: ${d?.price?.toFixed(2)}</div>
                   <div>Volume: {d?.volume?.toLocaleString()}</div>
                 </div>
               )
             }} />
-            <Bar yAxisId="volume" dataKey="volume" fill="rgba(96, 96, 112, 0.3)" />
+            <Bar yAxisId="volume" dataKey="volume" fill="rgba(148, 163, 184, 0.2)" />
             <Area yAxisId="price" type="monotone" dataKey="price" stroke="#22c55e" strokeWidth={2} fill="url(#priceGradient)" />
             {chartData.filter(d => d.isEarnings).map((d, i) => (
               <ReferenceLine key={i} yAxisId="price" x={d.date} stroke="#f59e0b" strokeDasharray="3 3" label={{ value: 'E', position: 'top', fill: '#f59e0b', fontSize: 12, fontWeight: 'bold' }} />
@@ -1927,7 +1929,7 @@ function FullFinvizTable({ fundamentals, nextEarnings }) {
         </tbody>
       </table>
       
-      <div style={{ fontSize: 11, color: '#606070', marginTop: 6, paddingLeft: 4 }}>† Approximate — FMP free tier limitation</div>
+      <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 6, paddingLeft: 4 }}>† Approximate — FMP free tier limitation</div>
 
       {nextEarnings && (
         <div className="next-earnings">
@@ -1947,7 +1949,7 @@ function InsightsPanel({ analysis, nextEarnings }) {
   return (
     <div className="card">
       <div className="insights-header">
-        <Info size={16} style={{ color: '#3b82f6' }} />
+        <Info size={16} style={{ color: '#2563eb' }} />
         <h3>Market Insights — {summary?.ticker}</h3>
         {summary?.assessment && (<span className={`assessment ${summary.assessment === 'Elevated Fear' ? 'fear' : summary.assessment === 'Bullish' ? 'bullish' : 'neutral'}`}>{summary.assessment}</span>)}
       </div>
@@ -1956,10 +1958,10 @@ function InsightsPanel({ analysis, nextEarnings }) {
 
       {summary?.expectedMove && (
         <div style={{ marginTop: 16, padding: 12, background: 'rgba(139, 92, 246, 0.1)', borderRadius: 8, border: '1px solid rgba(139, 92, 246, 0.3)' }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#8b5cf6', marginBottom: 8 }}>📊 Expected Move (Next Monthly)</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#7c3aed', marginBottom: 8 }}>📊 Expected Move (Next Monthly)</div>
           <div style={{ fontSize: 13 }}>
             Range: <span style={{ color: '#ef4444', fontWeight: 600 }}>${summary.expectedMove.lowerBound}</span> — <span style={{ color: '#22c55e', fontWeight: 600 }}>${summary.expectedMove.upperBound}</span>
-            <span style={{ color: '#606070', marginLeft: 8 }}>(±{summary.expectedMove.percent}%)</span>
+            <span style={{ color: '#94a3b8', marginLeft: 8 }}>(±{summary.expectedMove.percent}%)</span>
           </div>
         </div>
       )}
@@ -2040,12 +2042,12 @@ function DeltaTable({ chartData, stockPrice, ticker }) {
                       <tr key={`${row.exp}-${d}`} className={row.isMonthly ? 'monthly' : ''}>
                         <td>{di === 0 && (<>{row.exp}<span className={`exp-badge ${row.isMonthly ? 'monthly' : 'weekly'}`}>{row.isMonthly ? 'MONTHLY' : 'W'}</span></>)}</td>
                         <td><span className="delta-badge" style={{ background: COLORS[d] + '25', color: COLORS[d] }}>{d}Δ</span></td>
-                        <td className="right" style={{ color: '#ef4444', fontWeight: 600 }}>{dd.putPremium !== null ? <><span>${dd.putPremium.toFixed(2)}</span><span style={{ color: '#606070', fontSize: 10, fontWeight: 400 }}> (${dd.putStrike})</span></> : '-'}</td>
+                        <td className="right" style={{ color: '#ef4444', fontWeight: 600 }}>{dd.putPremium !== null ? <><span>${dd.putPremium.toFixed(2)}</span><span style={{ color: '#94a3b8', fontSize: 10, fontWeight: 400 }}> (${dd.putStrike})</span></> : '-'}</td>
                         <td className="right"><span style={{ color: '#ef4444' }}>${dd.putDistance}</span><span className="pct-diff negative"> ({dd.putPctFromStock}%)</span></td>
-                        <td className="right" style={{ color: '#a0a0b0' }}>{dd.putVolume?.toLocaleString() || '-'}</td>
-                        <td className="right border-left" style={{ color: '#22c55e', fontWeight: 600 }}>{dd.callPremium !== null ? <><span>${dd.callPremium.toFixed(2)}</span><span style={{ color: '#606070', fontSize: 10, fontWeight: 400 }}> (${dd.callStrike})</span></> : '-'}</td>
+                        <td className="right" style={{ color: '#64748b' }}>{dd.putVolume?.toLocaleString() || '-'}</td>
+                        <td className="right border-left" style={{ color: '#22c55e', fontWeight: 600 }}>{dd.callPremium !== null ? <><span>${dd.callPremium.toFixed(2)}</span><span style={{ color: '#94a3b8', fontSize: 10, fontWeight: 400 }}> (${dd.callStrike})</span></> : '-'}</td>
                         <td className="right"><span style={{ color: '#22c55e' }}>${dd.callDistance}</span><span className="pct-diff positive"> (+{dd.callPctFromStock}%)</span></td>
-                        <td className="right" style={{ color: '#a0a0b0' }}>{dd.callVolume?.toLocaleString() || '-'}</td>
+                        <td className="right" style={{ color: '#64748b' }}>{dd.callVolume?.toLocaleString() || '-'}</td>
                         <td className="right border-left" style={{ fontWeight: 600, color: dd.premiumSkew > 0 ? '#ef4444' : dd.premiumSkew < 0 ? '#22c55e' : '#a0a0b0' }}>{dd.premiumSkew !== null ? `$${dd.premiumSkew.toFixed(2)}` : '-'}</td>
                         <td className="right" style={{ fontWeight: 600, color: parseFloat(dd.skewPct) > 0 ? '#ef4444' : parseFloat(dd.skewPct) < 0 ? '#22c55e' : '#a0a0b0' }}>{dd.skewPct !== null ? `${parseFloat(dd.skewPct) > 0 ? '+' : ''}${dd.skewPct}%` : '-'}</td>
                         <td className="center" style={{ fontWeight: 600, color: dd.imbalance > 1.2 ? '#ef4444' : dd.imbalance < 0.8 ? '#22c55e' : '#a0a0b0' }}>{dd.imbalance || '-'}</td>
@@ -2239,7 +2241,7 @@ function ScannerTab() {
   }
   
   const formatTastyValue = (value, type) => {
-    if (value === undefined || value === null) return <span style={{ color: '#606070' }}>-</span>
+    if (value === undefined || value === null) return <span style={{ color: '#94a3b8' }}>-</span>
     
     if (type === 'ivRank' || type === 'ivPercentile') {
       const color = value > 50 ? '#ef4444' : value < 30 ? '#22c55e' : '#f59e0b'
@@ -2302,9 +2304,9 @@ function ScannerTab() {
       {/* Results Table */}
       <div className="card">
         <div className="card-title" style={{ marginBottom: 16 }}>
-          <Table2 size={16} style={{ color: '#3b82f6' }} />
+          <Table2 size={16} style={{ color: '#2563eb' }} />
           Monthly Options Skew Scanner (25Δ) + TastyTrade IV Metrics
-          <span style={{ marginLeft: 'auto', fontSize: 12, color: '#606070' }}>
+          <span style={{ marginLeft: 'auto', fontSize: 12, color: '#94a3b8' }}>
             {scannerData.length} stocks loaded
           </span>
         </div>
@@ -2312,7 +2314,7 @@ function ScannerTab() {
         {scannerData.length === 0 && !isRunning ? (
           <div className="scanner-empty">
             <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.3 }}>📊</div>
-            <h3 style={{ marginBottom: 8, color: '#a0a0b0' }}>No Data Yet</h3>
+            <h3 style={{ marginBottom: 8, color: '#64748b' }}>No Data Yet</h3>
             <p>Click "Start Scan" to fetch 25Δ skew data and TastyTrade IV metrics for all 100 stocks</p>
           </div>
         ) : (
@@ -2348,7 +2350,7 @@ function ScannerTab() {
               <tbody>
                 {sortedData.map(row => (
                   <tr key={row.ticker}>
-                    <td style={{ fontWeight: 700, color: '#3b82f6' }}>
+                    <td style={{ fontWeight: 700, color: '#2563eb' }}>
                       {row.ticker}
                     </td>
                     <td className="right price-cell">
@@ -2463,7 +2465,7 @@ function DashboardTab() {
       
       <div className="section"><TickerSelector tickers={DEFAULT_TICKERS} customTickers={customTickers} selected={selected} onSelect={handleSelect} onAddCustom={handleAddCustomTicker} onRemoveCustom={handleRemoveCustomTicker} loading={loading} /></div>
 
-      {loading && (<div className="card loading"><Loader2 size={24} className="spin" style={{ color: '#3b82f6' }} />Loading {selected} data...</div>)}
+      {loading && (<div className="card loading"><Loader2 size={24} className="spin" style={{ color: '#2563eb' }} />Loading {selected} data...</div>)}
       {error && (<div className="card" style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)' }}><div style={{ color: '#ef4444', fontWeight: 500 }}>Error: {error}</div></div>)}
 
       {data && !loading && (
@@ -2493,9 +2495,9 @@ function DashboardTab() {
 
       {!data && !loading && !error && (
         <div className="card" style={{ padding: 64, textAlign: 'center' }}>
-          <BarChart3 size={48} style={{ color: '#2a2a3a', marginBottom: 16 }} />
-          <h3 style={{ color: '#a0a0b0', marginBottom: 8 }}>Click a Ticker to Load Data</h3>
-          <p style={{ color: '#606070', fontSize: 14 }}>Select any ticker above to see options skew analysis.</p>
+          <BarChart3 size={48} style={{ color: '#cbd5e1', marginBottom: 16 }} />
+          <h3 style={{ color: '#64748b', marginBottom: 8 }}>Click a Ticker to Load Data</h3>
+          <p style={{ color: '#94a3b8', fontSize: 14 }}>Select any ticker above to see options skew analysis.</p>
         </div>
       )}
     </div>
@@ -2807,7 +2809,7 @@ function BacktestTab() {
       <div className="backtest-controls">
         <div className="backtest-control-group">
           <label>Ticker:</label>
-          <input type="text" value={ticker} onChange={e => setTicker(e.target.value.toUpperCase())} style={{ width: 80, fontFamily: 'monospace', textTransform: 'uppercase' }} />
+          <input type="text" value={ticker} onChange={e => setTicker(e.target.value.toUpperCase())} style={{ width: 80, fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase' }} />
         </div>
         <div className="backtest-control-group">
           <label>Strategy:</label>
@@ -2897,9 +2899,9 @@ function BacktestTab() {
                   {results.trades.map((t, i) => (
                     <tr key={i}>
                       <td><span className="delta-badge" style={{ background: t.type === 'put' ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.2)', color: t.type === 'put' ? '#ef4444' : '#22c55e' }}>{t.type.toUpperCase()}</span></td>
-                      <td style={{ fontFamily: 'monospace', fontSize: 11 }}>{t.contractTicker}</td>
+                      <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>{t.contractTicker}</td>
                       <td className="right" style={{ fontWeight: 600 }}>${t.strike}</td>
-                      <td className="right" style={{ color: '#a0a0b0' }}>{(t.delta * 100).toFixed(1)}Δ</td>
+                      <td className="right" style={{ color: '#64748b' }}>{(t.delta * 100).toFixed(1)}Δ</td>
                       <td className="right" style={{ color: '#22c55e', fontWeight: 600 }}>${t.premium?.toFixed(2) || '-'}</td>
                       <td className="right">{t.expiry}</td>
                       <td className="right" style={{ fontWeight: 600 }}>{t.expiryStockPrice ? `$${t.expiryStockPrice.toFixed(2)}` : 'Pending'}</td>
@@ -2935,10 +2937,10 @@ function BacktestTab() {
       {/* Execution log */}
       {logs.length > 0 && (
         <div className="backtest-log" style={{ marginTop: 16 }}>
-          <div style={{ fontSize: 11, color: '#606070', textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.05em' }}>Execution Log</div>
+          <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.05em' }}>Execution Log</div>
           {logs.map((log, i) => (
             <div key={i} className={`backtest-log-entry ${log.type}`}>
-              <span style={{ color: '#606070' }}>[{log.time}]</span> {log.msg}
+              <span style={{ color: '#94a3b8' }}>[{log.time}]</span> {log.msg}
             </div>
           ))}
         </div>
@@ -2946,10 +2948,10 @@ function BacktestTab() {
 
       {!results && !loading && logs.length === 0 && (
         <div className="card" style={{ padding: 64, textAlign: 'center' }}>
-          <Target size={48} style={{ color: '#2a2a3a', marginBottom: 16 }} />
-          <h3 style={{ color: '#a0a0b0', marginBottom: 8 }}>Options Backtest</h3>
-          <p style={{ color: '#606070', fontSize: 14 }}>Configure parameters and click "Run Backtest" to simulate selling options at a specific delta.</p>
-          <p style={{ color: '#606070', fontSize: 12, marginTop: 8 }}>Uses historical prices from Polygon.io + Black-Scholes delta estimation.</p>
+          <Target size={48} style={{ color: '#cbd5e1', marginBottom: 16 }} />
+          <h3 style={{ color: '#64748b', marginBottom: 8 }}>Options Backtest</h3>
+          <p style={{ color: '#94a3b8', fontSize: 14 }}>Configure parameters and click "Run Backtest" to simulate selling options at a specific delta.</p>
+          <p style={{ color: '#94a3b8', fontSize: 12, marginTop: 8 }}>Uses historical prices from Polygon.io + Black-Scholes delta estimation.</p>
         </div>
       )}
     </div>
@@ -2969,8 +2971,15 @@ export default function App() {
       <header className="header">
         <div className="container header-inner">
           <div>
-            <h1>Skew Tool Catalin v14</h1>
-            <p>NU ARUNCATI CU PIETRE - Multi-Delta Options Skew • TastyTrade IV Metrics • Volatility Smile • Scanner</p>
+            <h1>
+              <svg className="logo-mark" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="40" height="40" rx="10" fill="#2563eb"/>
+                <path d="M10 28L16 18L22 22L30 12" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M10 28L16 18L22 22L30 12" stroke="#93c5fd" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="4 3" transform="translate(0, 4)"/>
+              </svg>
+              SkewScanner
+            </h1>
+            <p>Multi-Delta Options Skew Analysis • IV Metrics • Volatility Scanner</p>
           </div>
           <div className="header-right">
             <div className="tabs">
@@ -3009,7 +3018,7 @@ export default function App() {
 
       <footer>
         <div className="container">
-          <p>Skew Tool Catalin v14 • TastyTrade IV Metrics • Scanner uses 25Δ monthly options (3rd Friday)</p>
+          <p>SkewScanner • Multi-Delta IV Skew • TastyTrade Metrics • Scanner uses 25Δ monthly options (3rd Friday)</p>
           <p>P/C Ratio = Total Put Vol ÷ Total Call Vol (60 days)</p>
         </div>
       </footer>
