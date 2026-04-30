@@ -630,7 +630,11 @@ function calculateATR(prices, period = 14) {
   const recent = prices.slice(-(period + 1))
   let atrSum = 0
   for (let i = 1; i < recent.length; i++) {
-    atrSum += Math.abs(recent[i].close - recent[i - 1].close)
+    const prevClose = recent[i - 1].close
+    const high = recent[i].high ?? recent[i].close
+    const low = recent[i].low ?? recent[i].close
+    const tr = Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose))
+    atrSum += tr
   }
   return (atrSum / period).toFixed(2)
 }
@@ -732,11 +736,11 @@ async function fetchFMPFundamentals(ticker, stockPrice, priceHistory) {
       'Quick Ratio': fmt(r.quickRatioTTM),
       'Current Ratio': fmt(r.currentRatioTTM),
       'Debt/Eq': fmt(r.debtEquityRatioTTM),
-      'LT Debt/Eq': fmt(r.longTermDebtToCapitalizationTTM),
+      'LT Debt/Eq†': fmt(r.longTermDebtToCapitalizationTTM),
       'EPS (ttm)': fmt(q.eps),
-      'EPS next Y': g.epsgrowth != null ? fmtPct(g.epsgrowth, 0) : '-',
+      'EPS next Y†': g.epsgrowth != null ? fmtPct(g.epsgrowth, 0) : '-',
       'EPS next Q': '-',
-      'EPS this Y': g.epsgrowth != null ? fmtPct(g.epsgrowth, 0) : '-',
+      'EPS this Y†': g.epsgrowth != null ? fmtPct(g.epsgrowth, 0) : '-',
       // BUG FIX: Was using fiveYRevenueGrowthPerShare (REVENUE) mislabelled as EPS next 5Y.
       // No reliable forward 5Y EPS estimate in FMP free tier — show '-'.
       'EPS next 5Y': '-',
@@ -782,8 +786,8 @@ function buildBasicFundamentals(stockPrice, priceHistory) {
 
   const result = {}
   const emptyFields = ['Index', 'Market Cap', 'Income', 'Sales', 'Book/sh', 'Cash/sh', 'Dividend', 'Dividend %', 'Beta',
-    'P/E', 'Forward P/E', 'PEG', 'P/S', 'P/B', 'P/C', 'P/FCF', 'Quick Ratio', 'Current Ratio', 'Debt/Eq', 'LT Debt/Eq',
-    'EPS (ttm)', 'EPS next Y', 'EPS next Q', 'EPS this Y', 'EPS next 5Y', 'EPS past 5Y', 'Sales Q/Q', 'EPS Q/Q',
+    'P/E', 'Forward P/E', 'PEG', 'P/S', 'P/B', 'P/C', 'P/FCF', 'Quick Ratio', 'Current Ratio', 'Debt/Eq', 'LT Debt/Eq†',
+    'EPS (ttm)', 'EPS next Y†', 'EPS next Q', 'EPS this Y†', 'EPS next 5Y', 'EPS past 5Y', 'Sales Q/Q', 'EPS Q/Q',
     'ROA', 'ROE', 'ROI', 'Insider Own', 'Shs Outstand', 'Shs Float', 'Short Float', 'Short Ratio', 'Target Price']
   emptyFields.forEach(f => result[f] = '-')
 
@@ -836,7 +840,7 @@ class APIClient {
     const res = await fetch(url)
     if (!res.ok) return []
     const data = await res.json()
-    return (data.results || []).map(r => ({ date: new Date(r.t).toISOString().split('T')[0], close: r.c, volume: r.v }))
+    return (data.results || []).map(r => ({ date: new Date(r.t).toISOString().split('T')[0], close: r.c, high: r.h, low: r.l, volume: r.v }))
   }
   
   async fetchEarnings(ticker) {
@@ -936,6 +940,7 @@ class TastyTradeClient {
     this.baseUrl = 'https://api.tastytrade.com'
     this.accessToken = null
     this.tokenExpiry = null
+    this.authError = null
   }
   
   async getAccessToken() {
@@ -962,16 +967,23 @@ class TastyTradeClient {
       if (!response.ok) {
         const errorText = await response.text()
         console.error('TastyTrade token refresh failed:', response.status, errorText)
+        this.authError = `Token refresh failed (${response.status})`
+        this.accessToken = null
+        this.tokenExpiry = null
         return null
       }
-      
+
       const data = await response.json()
       this.accessToken = data.access_token
       // Set expiry to 14 minutes (tokens last 15 min, refresh early)
       this.tokenExpiry = Date.now() + (14 * 60 * 1000)
+      this.authError = null
       return this.accessToken
     } catch (e) {
       console.error('TastyTrade token refresh error:', e)
+      this.authError = 'Connection failed — check credentials or network'
+      this.accessToken = null
+      this.tokenExpiry = null
       return null
     }
   }
@@ -1731,6 +1743,12 @@ function KeyMetrics({ analysis, stockPrice, tastyMetrics }) {
       </div>
       
       {/* TastyTrade Metrics Section */}
+      {!tastyMetrics && tastyTradeClient.authError && (
+        <div style={{ marginTop: 16, padding: '10px 14px', background: 'rgba(225, 29, 72, 0.1)', border: '1px solid rgba(225, 29, 72, 0.3)', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#f87171' }}>
+          <AlertTriangle size={14} />
+          TastyTrade session expired — IV Rank/Percentile unavailable
+        </div>
+      )}
       {tastyMetrics && (
         <div style={{ marginTop: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: '#e11d48', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1877,16 +1895,16 @@ function FullFinvizTable({ fundamentals, nextEarnings }) {
   
   const rows = [
     ['Index', fundamentals.Index || 'S&P 500', 'P/E', fundamentals['P/E'] || '-', 'EPS (ttm)', fundamentals['EPS (ttm)'] || '-', 'Insider Own', fundamentals['Insider Own'] || '-'],
-    ['Market Cap', fundamentals['Market Cap'] || '-', 'Forward P/E', fundamentals['Forward P/E'] || '-', 'EPS next Y', fundamentals['EPS next Y'] || '-', 'Shs Outstand', fundamentals['Shs Outstand'] || '-'],
+    ['Market Cap', fundamentals['Market Cap'] || '-', 'Forward P/E', fundamentals['Forward P/E'] || '-', 'EPS next Y†', fundamentals['EPS next Y†'] || '-', 'Shs Outstand', fundamentals['Shs Outstand'] || '-'],
     ['Income', fundamentals.Income || '-', 'PEG', fundamentals.PEG || '-', 'EPS next Q', fundamentals['EPS next Q'] || '-', 'Shs Float', fundamentals['Shs Float'] || '-'],
-    ['Sales', fundamentals.Sales || '-', 'P/S', fundamentals['P/S'] || '-', 'EPS this Y', fundamentals['EPS this Y'] || '-', 'Short Float', fundamentals['Short Float'] || '-'],
+    ['Sales', fundamentals.Sales || '-', 'P/S', fundamentals['P/S'] || '-', 'EPS this Y†', fundamentals['EPS this Y†'] || '-', 'Short Float', fundamentals['Short Float'] || '-'],
     ['Book/sh', fundamentals['Book/sh'] || '-', 'P/B', fundamentals['P/B'] || '-', 'EPS next 5Y', fundamentals['EPS next 5Y'] || '-', 'Short Ratio', fundamentals['Short Ratio'] || '-'],
     ['Cash/sh', fundamentals['Cash/sh'] || '-', 'P/C', fundamentals['P/C'] || '-', 'EPS past 5Y', fundamentals['EPS past 5Y'] || '-', 'Target Price', fundamentals['Target Price'] || '-'],
     ['Dividend', fundamentals.Dividend || '-', 'P/FCF', fundamentals['P/FCF'] || '-', 'Sales Q/Q', fundamentals['Sales Q/Q'] || '-', '52W Range', fundamentals['52W Range'] || '-'],
     ['Dividend %', fundamentals['Dividend %'] || '-', 'Quick Ratio', fundamentals['Quick Ratio'] || '-', 'EPS Q/Q', fundamentals['EPS Q/Q'] || '-', '52W High', fundamentals['52W High'] || '-'],
     ['Beta', fundamentals.Beta || '-', 'Current Ratio', fundamentals['Current Ratio'] || '-', 'ROA', fundamentals.ROA || '-', '52W Low', fundamentals['52W Low'] || '-'],
     ['ATR', fundamentals.ATR || '-', 'Debt/Eq', fundamentals['Debt/Eq'] || '-', 'ROE', fundamentals.ROE || '-', 'RSI (14)', fundamentals['RSI (14)'] || '-'],
-    ['Volatility', fundamentals.Volatility || '-', 'LT Debt/Eq', fundamentals['LT Debt/Eq'] || '-', 'ROI', fundamentals.ROI || '-', 'Change', fundamentals.Change || '-'],
+    ['Volatility', fundamentals.Volatility || '-', 'LT Debt/Eq†', fundamentals['LT Debt/Eq†'] || '-', 'ROI', fundamentals.ROI || '-', 'Change', fundamentals.Change || '-'],
   ]
   
   return (
@@ -1909,6 +1927,8 @@ function FullFinvizTable({ fundamentals, nextEarnings }) {
         </tbody>
       </table>
       
+      <div style={{ fontSize: 11, color: '#606070', marginTop: 6, paddingLeft: 4 }}>† Approximate — FMP free tier limitation</div>
+
       {nextEarnings && (
         <div className="next-earnings">
           <span className="next-earnings-icon">📅</span>

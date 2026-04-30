@@ -13,12 +13,12 @@ Known issues and planned improvements for Skew Dashboard v14.
 - [x] **~~ROI mapped to ROCE~~** — Fixed 2026-04-07. Now tries `m.roicTTM` (ROIC) first.
 
 - [ ] **`.env.example` missing `VITE_FMP_API_KEY`** — New devs won't know this key exists. Add it.
-- [ ] **ATR uses close-only (not true ATR)** — `calculateATR` uses `|close[i] - close[i-1]|`. True ATR needs high/low. `fetchPriceHistory` fetches from Polygon `/range/1/day/` which returns OHLC — but only `r.c` (close) and `r.v` (volume) are mapped. Fix: also map `r.h` (high) and `r.l` (low), then compute true ATR. TSLA: app 2.45 vs Finviz 14.83.
-- [ ] **FMP free tier data is stale for some fields** — `q.pe`, `q.eps`, ratios-ttm may lag days/weeks for high-profile tickers. Not a code bug. Fix: upgrade to FMP paid tier or switch fundamentals provider.
-- [ ] **`LT Debt/Eq` uses debt-to-capitalization, not debt-to-equity** — `r.longTermDebtToCapitalizationTTM` = LT Debt / (LT Debt + Equity) ≠ Finviz's LT Debt / Equity. FMP free tier doesn't expose the right field. TSLA: 0.59 vs Finviz 0.15.
-- [ ] **`EPS next Y` and `EPS this Y` show same value** — Both use `g.epsgrowth` (annual). Different concepts, no better source in free tier.
+- [x] **~~ATR uses close-only (not true ATR)~~** — Fixed 2026-04-30. `fetchPriceHistory` now maps `r.h` (high) and `r.l` (low). `calculateATR` uses true ATR formula: `max(high-low, |high-prevClose|, |low-prevClose|)`.
+- [x] **~~FMP free tier data is stale for some fields~~** — Mitigated 2026-04-30. Affected fields (`LT Debt/Eq†`, `EPS next Y†`, `EPS this Y†`) now marked with `†` and a footnote: "Approximate — FMP free tier limitation". Underlying data source unchanged.
+- [x] **~~`LT Debt/Eq` uses debt-to-capitalization, not debt-to-equity~~** — Mitigated 2026-04-30. Labelled as `LT Debt/Eq†` with footnote. Metric unchanged (FMP free tier limitation).
+- [x] **~~`EPS next Y` and `EPS this Y` show same value~~** — Mitigated 2026-04-30. Both labelled with `†` footnote. No better source in free tier.
 - [ ] **Scanner max date range silently truncated** — `maxEndDate` caps at 6 months with no UI feedback to user.
-- [ ] **TastyTrade refresh token expiry** — No user-visible error if refresh token is invalidated. Silently shows no TastyTrade data.
+- [x] **~~TastyTrade refresh token expiry~~** — Fixed 2026-04-30. `TastyTradeClient` now tracks `authError`. Dashboard shows a red banner when token refresh fails: "TastyTrade session expired — IV Rank/Percentile unavailable".
 - [ ] **Backtest: "expiry not yet reached" shows as `info` not warning** — When target expiry is in the future, result is `null` P&L with no clear explanation.
 
 ## Missing Features
